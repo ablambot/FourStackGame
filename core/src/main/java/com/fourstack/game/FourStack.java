@@ -7,6 +7,16 @@ import com.badlogic.gdx.graphics.GL20;
 import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.g2d.BitmapFont;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
+import com.badlogic.gdx.scenes.scene2d.Stage;
+import com.badlogic.gdx.scenes.scene2d.InputEvent;
+import com.badlogic.gdx.scenes.scene2d.ui.Label;
+import com.badlogic.gdx.scenes.scene2d.ui.SelectBox;
+import com.badlogic.gdx.scenes.scene2d.ui.Skin;
+import com.badlogic.gdx.scenes.scene2d.ui.Table;
+import com.badlogic.gdx.scenes.scene2d.ui.TextButton;
+import com.badlogic.gdx.scenes.scene2d.utils.ClickListener;
+import com.badlogic.gdx.utils.Align;
+import com.badlogic.gdx.utils.viewport.ScreenViewport;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -66,13 +76,29 @@ List<FallingPiece> activeFallingPieces = new ArrayList<>();
     SpriteBatch batch;
     Texture board;
     Texture frame;
+    Texture background;
     Texture yellowPiece;
     Texture redPiece;
     BitmapFont font;
 
+    // UI elements
+    Stage stage;
+    Skin skin;
+    Table introTable;
+    Table gameTable;
+    Label playerLabel;
+    Label aiLabel;
+    Label timeLabel;
+    Label difficultyLabel;
+    Label goalLabel;
+    Label statusLabel;
+    Label comboLabel;
+    Label messageLabel;
+    Label instructionsLabel;
+
     // Game state
-    enum GameState { PLAYING, PLAYER_WIN, AI_WIN, TIME_UP }
-    GameState gameState = GameState.PLAYING;
+    enum GameState { INTRO, PLAYING, PLAYER_WIN, AI_WIN, TIME_UP }
+    GameState gameState = GameState.INTRO;
 
     // Timer (2 minutes = 120 seconds)
     float timeRemaining = 120f;
@@ -88,11 +114,132 @@ List<FallingPiece> activeFallingPieces = new ArrayList<>();
         batch = new SpriteBatch();
         board = new Texture("board.png");
         frame = new Texture("frame.png");
+        background = new Texture("background.png");
         yellowPiece = new Texture("piece_yellow.png");
         redPiece = new Texture("piece_red.png");
         font = new BitmapFont();
         font.setColor(Color.WHITE);
         font.getData().setScale(2f);
+
+        // UI SETUP
+        stage = new Stage(new ScreenViewport());
+        Gdx.input.setInputProcessor(stage);
+        skin = new Skin(Gdx.files.internal("ui/uiskin.json"));
+
+        createIntroUI();
+        createGameUI();
+
+        // Start with Intro
+        introTable.setVisible(true);
+        gameTable.setVisible(false);
+    }
+
+    private void createIntroUI() {
+        introTable = new Table();
+        introTable.setFillParent(true);
+        introTable.setBackground(skin.getDrawable("alpha"));
+        stage.addActor(introTable);
+
+        Label titleLabel = new Label("FOUR STACK", skin, "subtitle");
+        titleLabel.setFontScale(2f);
+        titleLabel.setColor(Color.GOLD);
+
+        Label difficultyTitle = new Label("SELECT DIFFICULTY", skin);
+        final SelectBox<Difficulty> difficultySelect = new SelectBox<>(skin);
+        difficultySelect.setItems(Difficulty.values());
+        difficultySelect.setSelected(currentDifficulty);
+
+        TextButton startButton = new TextButton("START GAME", skin);
+        startButton.addListener(new ClickListener() {
+            @Override
+            public void clicked(InputEvent event, float x, float y) {
+                currentDifficulty = difficultySelect.getSelected();
+                if (currentDifficulty == Difficulty.EASY) scoreGoal = 2000;
+                else if (currentDifficulty == Difficulty.MEDIUM) scoreGoal = 5000;
+                else if (currentDifficulty == Difficulty.HARD) scoreGoal = 10000;
+                
+                startGame();
+            }
+        });
+
+        introTable.add(titleLabel).padBottom(50).row();
+        introTable.add(difficultyTitle).padBottom(10).row();
+        introTable.add(difficultySelect).width(200).padBottom(30).row();
+        introTable.add(startButton).width(250).height(60);
+    }
+
+    private void createGameUI() {
+        gameTable = new Table();
+        gameTable.setFillParent(true);
+        stage.addActor(gameTable);
+
+        // TOP BAR
+        Table topBar = new Table();
+        topBar.setBackground(skin.getDrawable("alpha"));
+        timeLabel = new Label("Time: 2:00", skin);
+        goalLabel = new Label("GOAL: " + scoreGoal, skin);
+        
+        topBar.add(timeLabel).pad(10, 20, 10, 20).left().expandX();
+        topBar.add(goalLabel).pad(10, 20, 10, 20).right().expandX();
+        gameTable.add(topBar).fillX().top().row();
+
+        // STATUS BAR
+        statusLabel = new Label("Your Turn", skin);
+        gameTable.add(statusLabel).pad(10).top().row();
+
+        // MIDDLE SPACE (for the board, which is drawn separately)
+        gameTable.add().expand().row();
+
+        // BOTTOM BAR
+        Table bottomBar = new Table();
+        bottomBar.setBackground(skin.getDrawable("alpha"));
+        playerLabel = new Label("PLAYER: 0", skin);
+        playerLabel.setColor(Color.YELLOW);
+        aiLabel = new Label("AI: 0", skin);
+        aiLabel.setColor(Color.RED);
+        difficultyLabel = new Label("DIFFICULTY: MEDIUM", skin);
+        comboLabel = new Label("", skin);
+        comboLabel.setColor(Color.GOLD);
+
+        bottomBar.add(playerLabel).pad(10, 20, 10, 20).left().expandX();
+        bottomBar.add(comboLabel).pad(10, 20, 10, 20).center().expandX();
+        bottomBar.add(aiLabel).pad(10, 20, 10, 20).right().expandX();
+        gameTable.add(bottomBar).fillX().bottom().row();
+
+        Table footer = new Table();
+        footer.setBackground(skin.getDrawable("alpha"));
+        instructionsLabel = new Label("1-3: Difficulty | R: Reset", skin);
+        instructionsLabel.setColor(Color.GRAY);
+        footer.add(difficultyLabel).pad(5, 10, 5, 10).left().expandX();
+        footer.add(instructionsLabel).pad(5, 10, 5, 10).right().expandX();
+        gameTable.add(footer).fillX().bottom();
+
+        // MESSAGE OVERLAY
+        messageLabel = new Label("", skin, "subtitle");
+        messageLabel.setAlignment(Align.center);
+        messageLabel.setVisible(false);
+        stage.addActor(messageLabel);
+        messageLabel.setPosition(Gdx.graphics.getWidth() / 2f, Gdx.graphics.getHeight() / 2f, Align.center);
+    }
+
+    private void startGame() {
+        grid = new int[ROWS][COLS];
+        gameState = GameState.PLAYING;
+        timeRemaining = 120f;
+        currentPlayer = 1; 
+        aiNeedsToMove = false;
+        aiTimer = 0f;
+        aiScore = 0;
+        score = 0;
+        comboMultiplier = 0;
+        introTable.setVisible(false);
+        gameTable.setVisible(true);
+    }
+
+    @Override
+    public void resize(int width, int height) {
+        stage.getViewport().update(width, height, true);
+        messageLabel.setPosition(width / 2f, height / 2f, Align.center);
     }
 
     @Override
@@ -137,7 +284,9 @@ List<FallingPiece> activeFallingPieces = new ArrayList<>();
         cellHeight = innerH / ROWS;
 
         // 3. Update Game Logic & Input
-        if (gameState == GameState.PLAYING) {
+        if (gameState == GameState.INTRO) {
+            // Nothing special here, Scene2D handles the intro UI
+        } else if (gameState == GameState.PLAYING) {
             timeRemaining -= deltaTime;
             if (timeRemaining <= 0) {
                 timeRemaining = 0;
@@ -172,11 +321,12 @@ List<FallingPiece> activeFallingPieces = new ArrayList<>();
         batch.begin();
 
         // --- LAYER 1: BACK (The very back background) ---
-        // If you have a separate background image, draw it here.
+        batch.draw(background, 0, 0, Gdx.graphics.getWidth(), Gdx.graphics.getHeight());
 
         // --- LAYER 2: PIECES (Falling and Dropped) ---
-       // Draw Falling Animation
-        for (int i = activeFallingPieces.size() - 1; i >= 0; i--) {
+        if (gameState != GameState.INTRO) {
+           // Draw Falling Animation
+            for (int i = activeFallingPieces.size() - 1; i >= 0; i--) {
             FallingPiece p = activeFallingPieces.get(i);
             p.update(deltaTime);
             
@@ -205,36 +355,37 @@ List<FallingPiece> activeFallingPieces = new ArrayList<>();
             batch.draw(pieceTex, p.x, p.y, size, size); 
 
             if (p.y <= p.targetY) {
-                grid[p.row][p.col] = p.player;
-                activeFallingPieces.remove(i);
-                finalizeTurn(p.col, p.player); 
+                    grid[p.row][p.col] = p.player;
+                    activeFallingPieces.remove(i);
+                    finalizeTurn(p.col, p.player); 
+                }
             }
-        }
 
-        // Draw Stationary Pieces in the Grid
-        for (int r = 0; r < ROWS; r++) {
-            for (int c = 0; c < COLS; c++) {
-                if (grid[r][c] != 0) {
-                    float size = Math.min(cellWidth, cellHeight) * 0.99f;
-                    float pieceX = innerX + c * cellWidth + (cellWidth - size) / 1f + 2.2f;
-                    float pieceY = innerY + (ROWS - 1 - r) * cellHeight + (cellHeight - size) / 1f - 3f;
-                    Texture piece = (grid[r][c] == 1) ? yellowPiece : redPiece;
-                    batch.draw(piece, pieceX, pieceY, size, size);
+            // Draw Stationary Pieces in the Grid
+            for (int r = 0; r < ROWS; r++) {
+                for (int c = 0; c < COLS; c++) {
+                    if (grid[r][c] != 0) {
+                        float size = Math.min(cellWidth, cellHeight) * 0.99f;
+                        float pieceX = innerX + c * cellWidth + (cellWidth - size) / 1f + 2.2f;
+                        float pieceY = innerY + (ROWS - 1 - r) * cellHeight + (cellHeight - size) / 1f - 3f;
+                        Texture piece = (grid[r][c] == 1) ? yellowPiece : redPiece;
+                        batch.draw(piece, pieceX, pieceY, size, size);
+                    }
                 }
             }
         }
 
         // --- LAYER 3: THE BOARD (The Mask with Holes) ---
-        // By drawing the board NOW, it covers the pieces. 
-        // For this to work, your "board.png" MUST have transparent holes!
-        float boardDrawW = innerW * (board.getWidth() / 112f);
-        float boardDrawH = innerH * (board.getHeight() / 96f);
-        float boardDrawX = innerX - (boardDrawW * (63f / 240f));
-        float boardDrawY = innerY - (boardDrawH * (97f / 256f));
-        batch.draw(board, boardDrawX, boardDrawY, boardDrawW, boardDrawH);
+        if (gameState != GameState.INTRO) {
+            float boardDrawW = innerW * (board.getWidth() / 112f);
+            float boardDrawH = innerH * (board.getHeight() / 96f);
+            float boardDrawX = innerX - (boardDrawW * (63f / 240f));
+            float boardDrawY = innerY - (boardDrawH * (97f / 256f));
+            batch.draw(board, boardDrawX, boardDrawY, boardDrawW, boardDrawH);
 
-        // --- LAYER 4: THE FRAME (The very front) ---
-        batch.draw(frame, frameX, frameY, frameWidth, frameHeight);
+            // --- LAYER 4: THE FRAME (The very front) ---
+            batch.draw(frame, frameX, frameY, frameWidth, frameHeight);
+        }
 
         // --- LAYER 5: PREVIEW & UI ---
         // (Keep your Preview Piece and UI logic here)
@@ -261,19 +412,11 @@ List<FallingPiece> activeFallingPieces = new ArrayList<>();
         // 5. UI
         updateAndDrawUI();
         
-        int minutes = (int) (timeRemaining / 60);
-        int seconds = (int) (timeRemaining % 60);
-        font.draw(batch, String.format("Time: %d:%02d", minutes, seconds), 20, Gdx.graphics.getHeight() - 20);
-        font.draw(batch, "DIFFICULTY: " + currentDifficulty, 20, 60);
-        font.draw(batch, "GOAL: " + scoreGoal, Gdx.graphics.getWidth() - 280, Gdx.graphics.getHeight() - 20);
-
-        if (gameState == GameState.PLAYING) {
-            font.draw(batch, currentPlayer == 1 ? "Your Turn" : "AI Thinking...", 20, Gdx.graphics.getHeight() - 60);
-        } else {
-            displayEndGameMessage();
-        }
-
         batch.end();
+
+        // --- LAYER 6: SCENE2D UI ---
+        stage.act(deltaTime);
+        stage.draw();
     }
 
     boolean dropPiece(int col, int player) {
@@ -290,17 +433,17 @@ List<FallingPiece> activeFallingPieces = new ArrayList<>();
 
 
     void displayEndGameMessage() {
-    if (gameState == GameState.PLAYER_WIN) {
-        font.setColor(Color.YELLOW);
-        font.draw(batch, "YOU WIN!", Gdx.graphics.getWidth()/2 - 100, Gdx.graphics.getHeight()/2);
-    } else if (gameState == GameState.AI_WIN) {
-        font.setColor(Color.RED);
-        font.draw(batch, "AI WINS!", Gdx.graphics.getWidth()/2 - 100, Gdx.graphics.getHeight()/2);
-    } else if (gameState == GameState.TIME_UP) {
-        font.setColor(Color.RED);
-        font.draw(batch, "TIME'S UP!", Gdx.graphics.getWidth()/2 - 100, Gdx.graphics.getHeight()/2);
-    }
-    font.setColor(Color.WHITE);
+        messageLabel.setVisible(true);
+        if (gameState == GameState.PLAYER_WIN) {
+            messageLabel.setText("YOU WIN!");
+            messageLabel.setColor(Color.YELLOW);
+        } else if (gameState == GameState.AI_WIN) {
+            messageLabel.setText("AI WINS!");
+            messageLabel.setColor(Color.RED);
+        } else if (gameState == GameState.TIME_UP) {
+            messageLabel.setText("TIME'S UP!");
+            messageLabel.setColor(Color.RED);
+        }
     }
 
     void makeAIMove() {
@@ -359,7 +502,7 @@ List<FallingPiece> activeFallingPieces = new ArrayList<>();
     boolean checkAndRemoveLines() {
         boolean foundLine = false;
 
-        // Horizontal Check
+        // 1. Horizontal Check (Clear entire ROW)
         for (int r = 0; r < ROWS; r++) {
             for (int c = 0; c <= COLS - 4; c++) {
                 if (grid[r][c] != 0 &&
@@ -367,13 +510,15 @@ List<FallingPiece> activeFallingPieces = new ArrayList<>();
                     grid[r][c] == grid[r][c+2] &&
                     grid[r][c] == grid[r][c+3]) {
                     
-                    grid[r][c] = 0; grid[r][c+1] = 0; grid[r][c+2] = 0; grid[r][c+3] = 0;
+                    // CLEAR ENTIRE ROW
+                    for (int i = 0; i < COLS; i++) grid[r][i] = 0;
                     foundLine = true;
+                    break; // Move to next row
                 }
             }
         }
 
-        // Vertical Check
+        // 2. Vertical Check (Clear entire COLUMN)
         for (int c = 0; c < COLS; c++) {
             for (int r = 0; r <= ROWS - 4; r++) {
                 if (grid[r][c] != 0 &&
@@ -381,65 +526,89 @@ List<FallingPiece> activeFallingPieces = new ArrayList<>();
                     grid[r][c] == grid[r+2][c] &&
                     grid[r][c] == grid[r+3][c]) {
                     
-                    grid[r][c] = 0; grid[r+1][c] = 0; grid[r+2][c] = 0; grid[r+3][c] = 0;
+                    // CLEAR ENTIRE COLUMN
+                    for (int i = 0; i < ROWS; i++) grid[i][c] = 0;
+                    foundLine = true;
+                    break; // Move to next column
+                }
+            }
+        }
+
+        // 3. Diagonal Down-Right (\) - Clear Entire Diagonal
+        for (int r = 0; r <= ROWS - 4; r++) {
+            for (int c = 0; c <= COLS - 4; c++) {
+                if (grid[r][c] != 0 &&
+                    grid[r][c] == grid[r+1][c+1] &&
+                    grid[r][c] == grid[r+2][c+2] &&
+                    grid[r][c] == grid[r+3][c+3]) {
+                    
+                    // Identify the starting point of this specific diagonal
+                    int startR = r, startC = c;
+                    while (startR > 0 && startC > 0) { startR--; startC--; }
+                    // Clear the whole diagonal from start to boundary
+                    while (startR < ROWS && startC < COLS) {
+                        grid[startR][startC] = 0;
+                        startR++; startC++;
+                    }
                     foundLine = true;
                 }
             }
         }
-        // 3. Diagonal Up-Left (/)
-        for (int r = 0; r <= ROWS - 4; r++) {
-                for (int c = 0; c <= COLS - 4; c++) {
-                    if (grid[r][c] != 0 &&
-                        grid[r][c] == grid[r+1][c+1] &&
-                        grid[r][c] == grid[r+2][c+2] &&
-                        grid[r][c] == grid[r+3][c+3]) {
-                        
-                        grid[r][c] = 0; grid[r+1][c+1] = 0; 
-                        grid[r+2][c+2] = 0; grid[r+3][c+3] = 0;
-                        foundLine = true;
+
+        // 4. Diagonal Up-Right (/) - Clear Entire Diagonal
+        for (int r = 3; r < ROWS; r++) {
+            for (int c = 0; c <= COLS - 4; c++) {
+                if (grid[r][c] != 0 &&
+                    grid[r][c] == grid[r-1][c+1] &&
+                    grid[r][c] == grid[r-2][c+2] &&
+                    grid[r][c] == grid[r-3][c+3]) {
+                    
+                    // Identify the starting point of this specific diagonal
+                    int startR = r, startC = c;
+                    while (startR < ROWS - 1 && startC > 0) { startR++; startC--; }
+                    // Clear the whole diagonal
+                    while (startR >= 0 && startC < COLS) {
+                        grid[startR][startC] = 0;
+                        startR--; startC++;
                     }
+                    foundLine = true;
                 }
             }
+        }
 
-            // 4. Diagonal Up-Right (/)
-            for (int r = 3; r < ROWS; r++) {
-                for (int c = 0; c <= COLS - 4; c++) {
-                    if (grid[r][c] != 0 &&
-                        grid[r][c] == grid[r-1][c+1] &&
-                        grid[r][c] == grid[r-2][c+2] &&
-                        grid[r][c] == grid[r-3][c+3]) {
-                        
-                        grid[r][c] = 0; grid[r-1][c+1] = 0; 
-                        grid[r-2][c+2] = 0; grid[r-3][c+3] = 0;
-                        foundLine = true;
-                    }
-                }
-            }
-
-            if (foundLine) {
-                float bonus = (score < 5000) ? 8f : 3f;
-                timeRemaining += bonus;
-            }
-            
-            return foundLine;
+        if (foundLine) {
+            float bonus = (score < 5000) ? 8f : 3f;
+            timeRemaining += bonus;
+        }
+        
+        return foundLine;
     }
 
     void updateAndDrawUI() {
-        // Player Score (Left)
-        font.setColor(Color.YELLOW);
-        font.draw(batch, "PLAYER: " + score, 20, Gdx.graphics.getHeight() - 100);
+        if (gameState == GameState.INTRO) return;
+        
+        int minutes = (int) (timeRemaining / 60);
+        int seconds = (int) (timeRemaining % 60);
+        timeLabel.setText(String.format("Time: %d:%02d", minutes, seconds));
+        goalLabel.setText("GOAL: " + scoreGoal);
+        difficultyLabel.setText("DIFFICULTY: " + currentDifficulty);
 
-        // AI Score (Right)
-        font.setColor(Color.RED);
-        font.draw(batch, "AI: " + aiScore, Gdx.graphics.getWidth() - 250, Gdx.graphics.getHeight() - 140);
+        playerLabel.setText("PLAYER: " + score);
+        aiLabel.setText("AI: " + aiScore);
 
-        // Draw Combo if active
         if (comboMultiplier > 1) {
-            font.setColor(Color.GOLD);
-            font.draw(batch, "COMBO X" + comboMultiplier, 20, Gdx.graphics.getHeight() - 140);
+            comboLabel.setText("COMBO X" + comboMultiplier);
+        } else {
+            comboLabel.setText("");
         }
 
-        font.setColor(Color.WHITE);
+        if (gameState == GameState.PLAYING) {
+            messageLabel.setVisible(false);
+            statusLabel.setText(currentPlayer == 1 ? "Your Turn" : "AI Thinking...");
+        } else {
+            statusLabel.setText("GAME OVER");
+            displayEndGameMessage();
+        }
     }
 
     @Override
@@ -447,9 +616,12 @@ List<FallingPiece> activeFallingPieces = new ArrayList<>();
         batch.dispose();
         board.dispose();
         frame.dispose();
+        background.dispose();
         yellowPiece.dispose();
         redPiece.dispose();
         font.dispose();
+        stage.dispose();
+        skin.dispose();
     }
 
     // --- ADD THIS AT THE BOTTOM OF YOUR CLASS ---
