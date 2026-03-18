@@ -2,6 +2,8 @@ package com.fourstack.game;
 
 import com.badlogic.gdx.ApplicationAdapter;
 import com.badlogic.gdx.Gdx;
+import com.badlogic.gdx.audio.Music;
+import com.badlogic.gdx.audio.Sound;
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.GL20;
 import com.badlogic.gdx.graphics.Texture;
@@ -51,9 +53,32 @@ class FallingPiece {
     }
 }
 
+class BlastEffect {
+    float x, y, size, alpha, duration;
+
+    BlastEffect(float x, float y, float size) {
+        this.x = x;
+        this.y = y;
+        this.size = size;
+        this.alpha = 1f;
+        this.duration = 0.5f; // Animation lasts 0.5 seconds
+    }
+
+    void update(float deltaTime) {
+        duration -= deltaTime;
+        alpha = duration * 2f; // Fade out
+        size *= 1 + (deltaTime * 2f); // Expand
+    }
+
+    boolean isFinished() {
+        return duration <= 0;
+    }
+}
+
 public class FourStack extends ApplicationAdapter {
         
 List<FallingPiece> activeFallingPieces = new ArrayList<>();
+List<BlastEffect> blastEffects = new ArrayList<>();
 
     float innerX, innerY, innerW, innerH;
     float cellWidth, cellHeight;
@@ -79,13 +104,22 @@ List<FallingPiece> activeFallingPieces = new ArrayList<>();
     Texture background;
     Texture yellowPiece;
     Texture redPiece;
+    // Texture blastTexture;
     BitmapFont font;
+
+    // Sound effects
+    Music backgroundMusic;
+    Sound popSound;
+    Sound winSound;
+    Sound loseSound;
+    // Sound blastSound; (Optional if needed later)
 
     // UI elements
     Stage stage;
     Skin skin;
     Table introTable;
     Table gameTable;
+    Table messageTable;
     Label playerLabel;
     Label aiLabel;
     Label timeLabel;
@@ -95,6 +129,7 @@ List<FallingPiece> activeFallingPieces = new ArrayList<>();
     Label comboLabel;
     Label messageLabel;
     Label instructionsLabel;
+    TextButton retryButton;
 
     // Game state
     enum GameState { INTRO, PLAYING, PLAYER_WIN, AI_WIN, TIME_UP }
@@ -117,9 +152,21 @@ List<FallingPiece> activeFallingPieces = new ArrayList<>();
         background = new Texture("background.png");
         yellowPiece = new Texture("piece_yellow.png");
         redPiece = new Texture("piece_red.png");
+        // blastTexture = new Texture("blast.png");
         font = new BitmapFont();
         font.setColor(Color.WHITE);
         font.getData().setScale(2f);
+
+        // Load and play background music
+        backgroundMusic = Gdx.audio.newMusic(Gdx.files.internal("backround_audio.mp3"));
+        backgroundMusic.setLooping(true);
+        backgroundMusic.setVolume(0.5f);
+        backgroundMusic.play();
+
+        // Load sound effects
+        popSound = Gdx.audio.newSound(Gdx.files.internal("pop_sound.mp3"));
+        winSound = Gdx.audio.newSound(Gdx.files.internal("win_sound.wav"));
+        loseSound = Gdx.audio.newSound(Gdx.files.internal("Lose_sound.wav"));
 
         // UI SETUP
         stage = new Stage(new ScreenViewport());
@@ -150,6 +197,9 @@ List<FallingPiece> activeFallingPieces = new ArrayList<>();
         difficultySelect.setSelected(currentDifficulty);
 
         TextButton startButton = new TextButton("START GAME", skin);
+        TextButton tutorialButton = new TextButton("TUTORIAL", skin);
+        TextButton settingsButton = new TextButton("SETTINGS", skin);
+
         startButton.addListener(new ClickListener() {
             @Override
             public void clicked(InputEvent event, float x, float y) {
@@ -165,7 +215,9 @@ List<FallingPiece> activeFallingPieces = new ArrayList<>();
         introTable.add(titleLabel).padBottom(50).row();
         introTable.add(difficultyTitle).padBottom(10).row();
         introTable.add(difficultySelect).width(200).padBottom(30).row();
-        introTable.add(startButton).width(250).height(60);
+        introTable.add(startButton).width(250).height(60).padBottom(15).row();
+        introTable.add(tutorialButton).width(200).height(50).padBottom(15).row();
+        introTable.add(settingsButton).width(200).height(50);
     }
 
     private void createGameUI() {
@@ -218,8 +270,24 @@ List<FallingPiece> activeFallingPieces = new ArrayList<>();
         messageLabel = new Label("", skin, "subtitle");
         messageLabel.setAlignment(Align.center);
         messageLabel.setVisible(false);
-        stage.addActor(messageLabel);
-        messageLabel.setPosition(Gdx.graphics.getWidth() / 2f, Gdx.graphics.getHeight() / 2f, Align.center);
+        
+        retryButton = new TextButton("RETRY", skin);
+        retryButton.addListener(new ClickListener() {
+            @Override
+            public void clicked(InputEvent event, float x, float y) {
+                messageTable.setVisible(false);
+                introTable.setVisible(true);
+                gameTable.setVisible(false);
+                gameState = GameState.INTRO;
+            }
+        });
+
+        messageTable = new Table();
+        messageTable.setFillParent(true);
+        messageTable.add(messageLabel).padBottom(30).row();
+        messageTable.add(retryButton).width(200).height(50);
+        messageTable.setVisible(false);
+        stage.addActor(messageTable);
     }
 
     private void startGame() {
@@ -234,6 +302,7 @@ List<FallingPiece> activeFallingPieces = new ArrayList<>();
         comboMultiplier = 0;
         introTable.setVisible(false);
         gameTable.setVisible(true);
+        messageTable.setVisible(false);
     }
 
     @Override
@@ -291,6 +360,7 @@ List<FallingPiece> activeFallingPieces = new ArrayList<>();
             if (timeRemaining <= 0) {
                 timeRemaining = 0;
                 gameState = GameState.TIME_UP;
+                loseSound.play();
             }
 
             // PLAYER CLICK DETECTION
@@ -327,34 +397,35 @@ List<FallingPiece> activeFallingPieces = new ArrayList<>();
         if (gameState != GameState.INTRO) {
            // Draw Falling Animation
             for (int i = activeFallingPieces.size() - 1; i >= 0; i--) {
-            FallingPiece p = activeFallingPieces.get(i);
-            p.update(deltaTime);
-            
-            // Use 0.99f to match stationary pieces
-            float size = Math.min(cellWidth, cellHeight) * 0.99f; 
-            Texture pieceTex = (p.player == 1 ? yellowPiece : redPiece);
-
-            // Speed Blur Trail
-            for (int j = 0; j < p.previousY.length; j++) {
-                float alpha = (j < 2) ? 1.0f : 1.0f - (j * 0.2f); 
-                if (alpha < 0) alpha = 0;
+                FallingPiece p = activeFallingPieces.get(i);
+                p.update(deltaTime);
                 
-                if (j % 2 == 0) batch.setColor(1, 1, 1, alpha);
-                else batch.setColor(0.8f, 0.8f, 0.8f, alpha);
+                // Use 0.99f to match stationary pieces
+                float size = Math.min(cellWidth, cellHeight) * 0.99f; 
+                Texture pieceTex = (p.player == 1 ? yellowPiece : redPiece);
 
-                // Center the trail on p.x (which already includes the +2.2f offset)
-                float trailWidth = size * 0.8f;
-                float trailX = p.x + (size - trailWidth) / 2f; 
+                // Speed Blur Trail
+                for (int j = 0; j < p.previousY.length; j++) {
+                    float alpha = (j < 2) ? 1.0f : 1.0f - (j * 0.2f); 
+                    if (alpha < 0) alpha = 0;
+                    
+                    if (j % 2 == 0) batch.setColor(1, 1, 1, alpha);
+                    else batch.setColor(0.8f, 0.8f, 0.8f, alpha);
 
-                batch.draw(pieceTex, trailX, p.previousY[j], trailWidth, size + (j * 10f));
-            }
+                    // Center the trail on p.x (which already includes the +2.2f offset)
+                    float trailWidth = size * 0.8f;
+                    float trailX = p.x + (size - trailWidth) / 2f; 
 
-            // Draw the main falling piece
-            batch.setColor(Color.WHITE); 
-            // p.x now contains the 2.2f offset, so no extra math needed here
-            batch.draw(pieceTex, p.x, p.y, size, size); 
+                    batch.draw(pieceTex, trailX, p.previousY[j], trailWidth, size + (j * 10f));
+                }
 
-            if (p.y <= p.targetY) {
+                // Draw the main falling piece
+                batch.setColor(Color.WHITE); 
+                // p.x now contains the 2.2f offset, so no extra math needed here
+                batch.draw(pieceTex, p.x, p.y, size, size); 
+
+                if (p.y <= p.targetY) {
+                    popSound.play();
                     grid[p.row][p.col] = p.player;
                     activeFallingPieces.remove(i);
                     finalizeTurn(p.col, p.player); 
@@ -375,7 +446,22 @@ List<FallingPiece> activeFallingPieces = new ArrayList<>();
             }
         }
 
-        // --- LAYER 3: THE BOARD (The Mask with Holes) ---
+        // --- LAYER 3: BLAST EFFECTS ---
+        /*
+        for (int i = blastEffects.size() - 1; i >= 0; i--) {
+            BlastEffect be = blastEffects.get(i);
+            be.update(deltaTime);
+            if (be.isFinished()) {
+                blastEffects.remove(i);
+            } else {
+                batch.setColor(1, 1, 1, be.alpha);
+                batch.draw(blastTexture, be.x - be.size / 2, be.y - be.size / 2, be.size, be.size);
+                batch.setColor(Color.WHITE);
+            }
+        }
+        */
+
+        // --- LAYER 4: THE BOARD (The Mask with Holes) ---
         if (gameState != GameState.INTRO) {
             float boardDrawW = innerW * (board.getWidth() / 112f);
             float boardDrawH = innerH * (board.getHeight() / 96f);
@@ -433,6 +519,9 @@ List<FallingPiece> activeFallingPieces = new ArrayList<>();
 
 
     void displayEndGameMessage() {
+        if (messageTable.isVisible()) return; // Already showing, no need to update
+        
+        messageTable.setVisible(true);
         messageLabel.setVisible(true);
         if (gameState == GameState.PLAYER_WIN) {
             messageLabel.setText("YOU WIN!");
@@ -511,7 +600,10 @@ List<FallingPiece> activeFallingPieces = new ArrayList<>();
                     grid[r][c] == grid[r][c+3]) {
                     
                     // CLEAR ENTIRE ROW
-                    for (int i = 0; i < COLS; i++) grid[r][i] = 0;
+                    for (int i = 0; i < COLS; i++) {
+                        if (grid[r][i] != 0) createBlastEffect(r, i);
+                        grid[r][i] = 0;
+                    }
                     foundLine = true;
                     break; // Move to next row
                 }
@@ -527,7 +619,10 @@ List<FallingPiece> activeFallingPieces = new ArrayList<>();
                     grid[r][c] == grid[r+3][c]) {
                     
                     // CLEAR ENTIRE COLUMN
-                    for (int i = 0; i < ROWS; i++) grid[i][c] = 0;
+                    for (int i = 0; i < ROWS; i++) {
+                        if (grid[i][c] != 0) createBlastEffect(i, c);
+                        grid[i][c] = 0;
+                    }
                     foundLine = true;
                     break; // Move to next column
                 }
@@ -547,6 +642,7 @@ List<FallingPiece> activeFallingPieces = new ArrayList<>();
                     while (startR > 0 && startC > 0) { startR--; startC--; }
                     // Clear the whole diagonal from start to boundary
                     while (startR < ROWS && startC < COLS) {
+                        if (grid[startR][startC] != 0) createBlastEffect(startR, startC);
                         grid[startR][startC] = 0;
                         startR++; startC++;
                     }
@@ -568,6 +664,7 @@ List<FallingPiece> activeFallingPieces = new ArrayList<>();
                     while (startR < ROWS - 1 && startC > 0) { startR++; startC--; }
                     // Clear the whole diagonal
                     while (startR >= 0 && startC < COLS) {
+                        if (grid[startR][startC] != 0) createBlastEffect(startR, startC);
                         grid[startR][startC] = 0;
                         startR--; startC++;
                     }
@@ -577,6 +674,7 @@ List<FallingPiece> activeFallingPieces = new ArrayList<>();
         }
 
         if (foundLine) {
+            popSound.play();
             float bonus = (score < 5000) ? 8f : 3f;
             timeRemaining += bonus;
         }
@@ -603,9 +701,9 @@ List<FallingPiece> activeFallingPieces = new ArrayList<>();
         }
 
         if (gameState == GameState.PLAYING) {
-            messageLabel.setVisible(false);
+            messageTable.setVisible(false);
             statusLabel.setText(currentPlayer == 1 ? "Your Turn" : "AI Thinking...");
-        } else {
+        } else if (gameState != GameState.INTRO) {
             statusLabel.setText("GAME OVER");
             displayEndGameMessage();
         }
@@ -619,9 +717,16 @@ List<FallingPiece> activeFallingPieces = new ArrayList<>();
         background.dispose();
         yellowPiece.dispose();
         redPiece.dispose();
+        // if (blastTexture != null) blastTexture.dispose();
         font.dispose();
         stage.dispose();
         skin.dispose();
+        
+        // Dispose audio
+        if (backgroundMusic != null) backgroundMusic.dispose();
+        if (popSound != null) popSound.dispose();
+        if (winSound != null) winSound.dispose();
+        if (loseSound != null) loseSound.dispose();
     }
 
     // --- ADD THIS AT THE BOTTOM OF YOUR CLASS ---
@@ -655,10 +760,17 @@ void finalizeTurn(int col, int playerID) {
     if (!linesCleared) comboMultiplier = 0;
 
     // Check Win/Loss
-    if (score >= scoreGoal) gameState = GameState.PLAYER_WIN;
-    else if (aiScore >= scoreGoal) gameState = GameState.AI_WIN;
-    else if (grid[0][col] != 0) gameState = (playerID == 1) ? GameState.AI_WIN : GameState.PLAYER_WIN;
-    else {
+    if (score >= scoreGoal) {
+        gameState = GameState.PLAYER_WIN;
+        winSound.play();
+    } else if (aiScore >= scoreGoal) {
+        gameState = GameState.AI_WIN;
+        loseSound.play();
+    } else if (grid[0][col] != 0) {
+        gameState = (playerID == 1) ? GameState.AI_WIN : GameState.PLAYER_WIN;
+        if (gameState == GameState.AI_WIN) loseSound.play();
+        else winSound.play();
+    } else {
         // Switch turns
         currentPlayer = (playerID == 1) ? 2 : 1;
         if (currentPlayer == 2) {
@@ -732,5 +844,12 @@ void executeMove(int col) {
         }
 
         return false;
+    }
+
+    void createBlastEffect(int r, int c) {
+        float size = Math.min(cellWidth, cellHeight);
+        float pieceX = innerX + c * cellWidth + (cellWidth - size) / 2f;
+        float pieceY = innerY + (ROWS - 1 - r) * cellHeight + (cellHeight - size) / 2f;
+        blastEffects.add(new BlastEffect(pieceX + size / 2, pieceY + size / 2, size));
     }
 }
