@@ -1,5 +1,4 @@
 package com.fourstack.game;
-
 import com.badlogic.gdx.ApplicationAdapter;
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.audio.Music;
@@ -19,10 +18,13 @@ import com.badlogic.gdx.scenes.scene2d.ui.TextButton;
 import com.badlogic.gdx.scenes.scene2d.utils.ClickListener;
 import com.badlogic.gdx.utils.Align;
 import com.badlogic.gdx.utils.viewport.ScreenViewport;
-
+import com.badlogic.gdx.utils.viewport.FitViewport;
+import com.badlogic.gdx.utils.viewport.Viewport;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
+
+
 
 class FallingPiece {
     float x, y, targetY, speed;
@@ -77,6 +79,11 @@ class BlastEffect {
 
 public class FourStack extends ApplicationAdapter {
         
+        // Add these constants
+    public static final float VIRTUAL_WIDTH = 1440;
+    public static final float VIRTUAL_HEIGHT = 762;
+    private com.badlogic.gdx.utils.viewport.Viewport viewport;
+
 List<FallingPiece> activeFallingPieces = new ArrayList<>();
 List<BlastEffect> blastEffects = new ArrayList<>();
 
@@ -147,9 +154,9 @@ List<BlastEffect> blastEffects = new ArrayList<>();
     @Override
     public void create() {
         batch = new SpriteBatch();
+        background = new Texture("border.png");
         board = new Texture("board.png");
         frame = new Texture("frame.png");
-        background = new Texture("background.png");
         yellowPiece = new Texture("piece_yellow.png");
         redPiece = new Texture("piece_red.png");
         // blastTexture = new Texture("blast.png");
@@ -169,7 +176,9 @@ List<BlastEffect> blastEffects = new ArrayList<>();
         loseSound = Gdx.audio.newSound(Gdx.files.internal("Lose_sound.wav"));
 
         // UI SETUP
-        stage = new Stage(new ScreenViewport());
+        // Change ScreenViewport to FitViewport
+        viewport = new com.badlogic.gdx.utils.viewport.FitViewport(VIRTUAL_WIDTH, VIRTUAL_HEIGHT);
+        stage = new Stage(viewport); // The stage now uses the virtual resolution
         Gdx.input.setInputProcessor(stage);
         skin = new Skin(Gdx.files.internal("ui/uiskin.json"));
 
@@ -220,75 +229,80 @@ List<BlastEffect> blastEffects = new ArrayList<>();
         introTable.add(settingsButton).width(200).height(50);
     }
 
-    private void createGameUI() {
-        gameTable = new Table();
-        gameTable.setFillParent(true);
-        stage.addActor(gameTable);
+private void createGameUI() {
+    gameTable = new Table();
+    gameTable.setFillParent(true);
+    stage.addActor(gameTable);
 
-        // TOP BAR
-        Table topBar = new Table();
-        topBar.setBackground(skin.getDrawable("alpha"));
-        timeLabel = new Label("Time: 2:00", skin);
-        goalLabel = new Label("GOAL: " + scoreGoal, skin);
-        
-        topBar.add(timeLabel).pad(10, 20, 10, 20).left().expandX();
-        topBar.add(goalLabel).pad(10, 20, 10, 20).right().expandX();
-        gameTable.add(topBar).fillX().top().row();
+    // 1. INITIALIZE LABELS
+    timeLabel = new Label("", skin);
+    goalLabel = new Label("" , skin);
+    playerLabel = new Label("", skin);
+    aiLabel = new Label("", skin);
+    difficultyLabel = new Label("", skin);
+    statusLabel = new Label("", skin);
+    comboLabel = new Label("", skin);
 
-        // STATUS BAR
-        statusLabel = new Label("Your Turn", skin);
-        gameTable.add(statusLabel).pad(10).top().row();
+    // 2. SCALE / ENLARGE (Change these numbers to go bigger/smaller)
+    timeLabel.setFontScale(3.4f);
+    goalLabel.setFontScale(3.4f);
+    difficultyLabel.setFontScale(3.75f);
+    playerLabel.setFontScale(2.9f);
+    aiLabel.setFontScale(2.9f);
+    statusLabel.setFontScale(1.5f);
+    comboLabel.setFontScale(2.9f);
 
-        // MIDDLE SPACE (for the board, which is drawn separately)
-        gameTable.add().expand().row();
+    // 3. SET COLORS
+    playerLabel.setColor(Color.YELLOW);
+    aiLabel.setColor(Color.RED);
+    comboLabel.setColor(Color.GOLD);
+    difficultyLabel.setColor(Color.CYAN);
 
-        // BOTTOM BAR
-        Table bottomBar = new Table();
-        bottomBar.setBackground(skin.getDrawable("alpha"));
-        playerLabel = new Label("PLAYER: 0", skin);
-        playerLabel.setColor(Color.YELLOW);
-        aiLabel = new Label("AI: 0", skin);
-        aiLabel.setColor(Color.RED);
-        difficultyLabel = new Label("DIFFICULTY: MEDIUM", skin);
-        comboLabel = new Label("", skin);
-        comboLabel.setColor(Color.GOLD);
+    // 4. POSITIONING (Separate Entities - Adjust X and Y here)
+    // Note: 0,0 is Bottom-Left of the screen
+    timeLabel.setPosition(1243, 653);
+    goalLabel.setPosition(863, 653);
+    
+    difficultyLabel.setPosition(320, 28);
+    
+    statusLabel.setPosition(VIRTUAL_WIDTH / 2f - 50, VIRTUAL_HEIGHT - 50);
+    
+    playerLabel.setPosition(845, 577); // Moved to the right side area
+    aiLabel.setPosition(845, 527);     // Stacked below player score
+    
+    comboLabel.setPosition(VIRTUAL_WIDTH / 2f - 100, 100);
 
-        bottomBar.add(playerLabel).pad(10, 20, 10, 20).left().expandX();
-        bottomBar.add(comboLabel).pad(10, 20, 10, 20).center().expandX();
-        bottomBar.add(aiLabel).pad(10, 20, 10, 20).right().expandX();
-        gameTable.add(bottomBar).fillX().bottom().row();
+    // 5. ADD DIRECTLY TO STAGE (Not the table!)
+    stage.addActor(timeLabel);
+    stage.addActor(goalLabel);
+    stage.addActor(difficultyLabel);
+    stage.addActor(statusLabel);
+    stage.addActor(playerLabel);
+    stage.addActor(aiLabel);
+    stage.addActor(comboLabel);
 
-        Table footer = new Table();
-        footer.setBackground(skin.getDrawable("alpha"));
-        instructionsLabel = new Label("1-3: Difficulty | R: Reset", skin);
-        instructionsLabel.setColor(Color.GRAY);
-        footer.add(difficultyLabel).pad(5, 10, 5, 10).left().expandX();
-        footer.add(instructionsLabel).pad(5, 10, 5, 10).right().expandX();
-        gameTable.add(footer).fillX().bottom();
+    // 6. MESSAGE OVERLAY (Keep this as a table so it centers easily)
+    messageLabel = new Label("", skin, "subtitle");
+    messageLabel.setAlignment(Align.center);
+    
+    retryButton = new TextButton("RETRY", skin);
+    retryButton.addListener(new ClickListener() {
+        @Override
+        public void clicked(InputEvent event, float x, float y) {
+            messageTable.setVisible(false);
+            introTable.setVisible(true);
+            gameTable.setVisible(false);
+            gameState = GameState.INTRO;
+        }
+    });
 
-        // MESSAGE OVERLAY
-        messageLabel = new Label("", skin, "subtitle");
-        messageLabel.setAlignment(Align.center);
-        messageLabel.setVisible(false);
-        
-        retryButton = new TextButton("RETRY", skin);
-        retryButton.addListener(new ClickListener() {
-            @Override
-            public void clicked(InputEvent event, float x, float y) {
-                messageTable.setVisible(false);
-                introTable.setVisible(true);
-                gameTable.setVisible(false);
-                gameState = GameState.INTRO;
-            }
-        });
-
-        messageTable = new Table();
-        messageTable.setFillParent(true);
-        messageTable.add(messageLabel).padBottom(30).row();
-        messageTable.add(retryButton).width(200).height(50);
-        messageTable.setVisible(false);
-        stage.addActor(messageTable);
-    }
+    messageTable = new Table();
+    messageTable.setFillParent(true);
+    messageTable.add(messageLabel).padBottom(30).row();
+    messageTable.add(retryButton).width(200).height(60);
+    messageTable.setVisible(false);
+    stage.addActor(messageTable);
+}
 
     private void startGame() {
         grid = new int[ROWS][COLS];
@@ -307,8 +321,8 @@ List<BlastEffect> blastEffects = new ArrayList<>();
 
     @Override
     public void resize(int width, int height) {
-        stage.getViewport().update(width, height, true);
-        messageLabel.setPosition(width / 2f, height / 2f, Align.center);
+        // This maintains the aspect ratio automatically
+        viewport.update(width, height, true); 
     }
 
     @Override
@@ -332,12 +346,15 @@ List<BlastEffect> blastEffects = new ArrayList<>();
             comboMultiplier = 0;
         }
 
-        // 2. COORDINATE MATH (Must be before Input and Drawing)
+        // 2. COORDINATE MATH (Shifted to the left half)
         float scale = 2.5f;
         float frameWidth = frame.getWidth() * scale;
         float frameHeight = frame.getHeight() * scale;
-        float frameX = (Gdx.graphics.getWidth() - frameWidth) / 2f;
-        float frameY = (Gdx.graphics.getHeight() - frameHeight) / 2f;
+
+        // Change frameX to align with the left side instead of center
+        // We use a small padding (e.g., 20) or just 0 to stick it to the far left
+        float frameX = 20f; 
+        float frameY = (VIRTUAL_HEIGHT - frameHeight) / 2f;
 
         float framePadLeft = frameWidth * 0.2583f;
         float framePadRight = frameWidth * 0.2667f;
@@ -365,10 +382,15 @@ List<BlastEffect> blastEffects = new ArrayList<>();
 
             // PLAYER CLICK DETECTION
             if (currentPlayer == 1 && Gdx.input.justTouched()) {
-                float mouseX = Gdx.input.getX();
-                // Check if within horizontal board bounds
-                if (mouseX >= innerX && mouseX <= innerX + innerW) {
-                    int col = (int) ((mouseX - innerX) / cellWidth);
+                // 1. Create a temporary vector to hold the touch coordinates
+                com.badlogic.gdx.math.Vector2 touch = new com.badlogic.gdx.math.Vector2(Gdx.input.getX(), Gdx.input.getY());
+                
+                // 2. Translate the "Screen" click to our "Virtual" 1920x1016 world
+                viewport.unproject(touch);
+                
+                // 3. Use touch.x instead of mouseX
+                if (touch.x >= innerX && touch.x <= innerX + innerW) {
+                    int col = (int) ((touch.x - innerX) / cellWidth);
                     executeMove(col); 
                 }
             }
@@ -385,13 +407,18 @@ List<BlastEffect> blastEffects = new ArrayList<>();
         }
 
         // 4. DRAWING SECTION
-        Gdx.gl.glClearColor(0, 0, 0, 1);
-        Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
+    Gdx.gl.glClearColor(0, 0, 0, 1);
+    Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
 
-        batch.begin();
+    viewport.apply();
+    batch.setProjectionMatrix(viewport.getCamera().combined);
+
+            batch.begin();
 
         // --- LAYER 1: BACK (The very back background) ---
-        batch.draw(background, 0, 0, Gdx.graphics.getWidth(), Gdx.graphics.getHeight());
+        // --- LAYER 1: BACK ---
+    // This draws your "border.png" to fill the whole screen
+    batch.draw(background, 0, 0, VIRTUAL_WIDTH, VIRTUAL_HEIGHT);
 
         // --- LAYER 2: PIECES (Falling and Dropped) ---
         if (gameState != GameState.INTRO) {
@@ -475,10 +502,13 @@ List<BlastEffect> blastEffects = new ArrayList<>();
 
         // --- LAYER 5: PREVIEW & UI ---
         // (Keep your Preview Piece and UI logic here)
-                if (gameState == GameState.PLAYING && currentPlayer == 1) {
-                    float mouseX = Gdx.input.getX();
-                    if (mouseX >= innerX && mouseX <= innerX + innerW) {
-                        int hoverCol = (int) ((mouseX - innerX) / cellWidth);
+    if (gameState == GameState.PLAYING && currentPlayer == 1) {
+        // Translate mouse to virtual coordinates
+        com.badlogic.gdx.math.Vector2 mouse = new com.badlogic.gdx.math.Vector2(Gdx.input.getX(), Gdx.input.getY());
+        viewport.unproject(mouse);
+
+        if (mouse.x >= innerX && mouse.x <= innerX + innerW) {
+            int hoverCol = (int) ((mouse.x - innerX) / cellWidth);
                         
                         float size = Math.min(cellWidth, cellHeight) * 0.99f;
                         float previewX = innerX + hoverCol * cellWidth + (cellWidth - size) / 1f + 2f;
@@ -687,15 +717,15 @@ List<BlastEffect> blastEffects = new ArrayList<>();
         
         int minutes = (int) (timeRemaining / 60);
         int seconds = (int) (timeRemaining % 60);
-        timeLabel.setText(String.format("Time: %d:%02d", minutes, seconds));
-        goalLabel.setText("GOAL: " + scoreGoal);
-        difficultyLabel.setText("DIFFICULTY: " + currentDifficulty);
+        timeLabel.setText(String.format("%d:%02d", minutes, seconds));
+        goalLabel.setText("" + scoreGoal);
+        difficultyLabel.setText("" + currentDifficulty);
 
-        playerLabel.setText("PLAYER: " + score);
-        aiLabel.setText("AI: " + aiScore);
+        playerLabel.setText(score);
+        aiLabel.setText (aiScore);
 
         if (comboMultiplier > 1) {
-            comboLabel.setText("COMBO X" + comboMultiplier);
+            comboLabel.setText("x" + comboMultiplier);
         } else {
             comboLabel.setText("");
         }
@@ -794,7 +824,7 @@ void executeMove(int col) {
     if (targetRow != -1) {
         float size = Math.min(cellWidth, cellHeight) * 0.99f;
         float startX = innerX + col * cellWidth + (cellWidth - size) / 1f + 2.2f;
-        float startY = Gdx.graphics.getHeight(); 
+        float startY = VIRTUAL_HEIGHT;
         float targetY = innerY + (ROWS - 1 - targetRow) * cellHeight + (cellHeight - size) / 1f - 3f;
 
         activeFallingPieces.add(new FallingPiece(startX, startY, targetY, currentPlayer, col, targetRow));
