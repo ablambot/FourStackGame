@@ -101,11 +101,16 @@ public class FourStack extends ApplicationAdapter {
     public static final float VIRTUAL_HEIGHT = 762;
     private com.badlogic.gdx.utils.viewport.Viewport viewport;
 
+    Texture border2p;
+    boolean isTwoPlayer = false; // Track if we are in 2P mode
+
     Sound blast1, blast2;
     ShapeRenderer shapeRenderer;
     List<SweepEffect> activeSweeps = new ArrayList<>();
     List<FallingPiece> activeFallingPieces = new ArrayList<>();
     List<BlastEffect> blastEffects = new ArrayList<>();
+    float masterVolume = 0.7f; // Default volume at 50%
+    Table settingsTable;        // Table to hold our settings UI
 
     float innerX, innerY, innerW, innerH;
     float cellWidth, cellHeight;
@@ -177,6 +182,7 @@ public class FourStack extends ApplicationAdapter {
     public void create() {
         batch = new SpriteBatch();
         border = new Texture("border.png");
+        border2p = new Texture("border2p.png");
         background = new Texture("background.png");
         board = new Texture("board.png");
         frame = new Texture("frame.png");
@@ -237,13 +243,35 @@ public class FourStack extends ApplicationAdapter {
         startButton.addListener(new ClickListener() {
             @Override
             public void clicked(InputEvent event, float x, float y) {
-                currentDifficulty = difficultySelect.getSelected();
-                if (currentDifficulty == Difficulty.EASY) scoreGoal = 2000;
-                else if (currentDifficulty == Difficulty.MEDIUM) scoreGoal = 5000;
-                else if (currentDifficulty == Difficulty.HARD) scoreGoal = 10000;
-                
+                isTwoPlayer = false; // Set to AI mode
+                applyDifficulty(difficultySelect.getSelected());
                 startGame();
             }
+        
+            private void applyDifficulty(Difficulty selected) {
+            currentDifficulty = selected;
+            if (currentDifficulty == Difficulty.EASY) scoreGoal = 2000;
+            else if (currentDifficulty == Difficulty.MEDIUM) scoreGoal = 5000;
+            else if (currentDifficulty == Difficulty.HARD) scoreGoal = 10000;
+        }
+
+        });
+
+        twoplayerButton.addListener(new ClickListener() {
+            @Override
+            public void clicked(InputEvent event, float x, float y) {
+                isTwoPlayer = true; // Set to Human vs Human mode
+                applyDifficulty(difficultySelect.getSelected());
+                startGame();
+            }
+
+        private void applyDifficulty(Difficulty selected) {
+            currentDifficulty = selected;
+            if (currentDifficulty == Difficulty.EASY) scoreGoal = 2000;
+            else if (currentDifficulty == Difficulty.MEDIUM) scoreGoal = 5000;
+            else if (currentDifficulty == Difficulty.HARD) scoreGoal = 10000;
+        }
+
         });
 
         introTable.add(titleLabel).padBottom(50).row();
@@ -252,6 +280,60 @@ public class FourStack extends ApplicationAdapter {
         introTable.add(startButton).width(250).height(60).padBottom(15).row();
         introTable.add(twoplayerButton).width(200).height(50).padBottom(15).row();
         introTable.add(settingsButton).width(200).height(50);
+
+        settingsButton.addListener(new ClickListener() {
+        @Override
+        public void clicked(InputEvent event, float x, float y) {
+            introTable.setVisible(false);
+            settingsTable.setVisible(true);
+        }
+    });
+
+        // --- SETTINGS TABLE SETUP ---
+        settingsTable = new Table();
+        settingsTable.setFillParent(true);
+        settingsTable.setBackground(skin.getDrawable("alpha")); // Use your skin's background
+        stage.addActor(settingsTable);
+        settingsTable.setVisible(false);
+
+        Label settingsTitle = new Label("SETTINGS", skin, "subtitle");
+        settingsTitle.setColor(Color.GOLD);
+
+        Label volumeLabel = new Label("MASTER VOLUME", skin);
+        
+        // Create a Slider: min 0, max 1, step 0.1
+        final com.badlogic.gdx.scenes.scene2d.ui.Slider volumeSlider = 
+            new com.badlogic.gdx.scenes.scene2d.ui.Slider(0f, 1f, 0.05f, false, skin);
+        volumeSlider.setValue(masterVolume);
+
+        volumeSlider.addListener(new com.badlogic.gdx.scenes.scene2d.utils.ChangeListener() {
+            @Override
+            public void changed(ChangeEvent event, com.badlogic.gdx.scenes.scene2d.Actor actor) {
+                masterVolume = volumeSlider.getValue();
+                updateMasterVolume();
+            }
+            private void updateMasterVolume() {
+            if (backgroundMusic != null) {
+                backgroundMusic.setVolume(masterVolume);
+                }
+            }
+        });
+
+        TextButton backButton = new TextButton("BACK", skin);
+        backButton.addListener(new ClickListener() {
+            @Override
+            public void clicked(InputEvent event, float x, float y) {
+                settingsTable.setVisible(false);
+                introTable.setVisible(true);
+            }
+        });
+
+        // Layout
+        settingsTable.add(settingsTitle).padBottom(40).row();
+        settingsTable.add(volumeLabel).padBottom(10).row();
+        settingsTable.add(volumeSlider).width(300).padBottom(40).row();
+        settingsTable.add(backButton).width(200).height(50);
+
     }
 
 private void createGameUI() {
@@ -292,8 +374,8 @@ private void createGameUI() {
     
     statusLabel.setPosition(VIRTUAL_WIDTH / 2f - 50, VIRTUAL_HEIGHT - 50);
     
-    playerLabel.setPosition(835, 554); // Moved to the right side area
-    aiLabel.setPosition(835, 504);     // Stacked below player score
+    playerLabel.setPosition(840, 554); // Moved to the right side area
+    aiLabel.setPosition(840, 504);     // Stacked below player score
     
     comboLabel.setPosition(1303, 554);
 
@@ -406,30 +488,32 @@ private void createGameUI() {
             }
 
             // PLAYER CLICK DETECTION
-            if (currentPlayer == 1 && Gdx.input.justTouched()) {
-                // 1. Create a temporary vector to hold the touch coordinates
-                com.badlogic.gdx.math.Vector2 touch = new com.badlogic.gdx.math.Vector2(Gdx.input.getX(), Gdx.input.getY());
-                
-                // 2. Translate the "Screen" click to our "Virtual" 1920x1016 world
-                viewport.unproject(touch);
-                
-                // 3. Use touch.x instead of mouseX
-                if (touch.x >= innerX && touch.x <= innerX + innerW) {
-                    int col = (int) ((touch.x - innerX) / cellWidth);
-                    executeMove(col); 
-                }
-            }
-
-            // AI MOVE LOGIC
-            if (aiNeedsToMove) {
-                aiTimer += deltaTime;
-                if (aiTimer >= aiMoveDelay) {
-                    makeAIMove();
-                    aiTimer = 0f;
-                    aiNeedsToMove = false;
+        // Inside render() -> PLAYING state
+        if (currentPlayer != 0) { // 0 means a piece is currently falling
+            // Allow clicking if it's P1, OR if it's P2 and we are in Two Player mode
+            if (currentPlayer == 1 || (isTwoPlayer && currentPlayer == 2)) {
+                if (Gdx.input.justTouched()) {
+                    com.badlogic.gdx.math.Vector2 touch = new com.badlogic.gdx.math.Vector2(Gdx.input.getX(), Gdx.input.getY());
+                    viewport.unproject(touch);
+                    
+                    if (touch.x >= innerX && touch.x <= innerX + innerW) {
+                        int col = (int) ((touch.x - innerX) / cellWidth);
+                        executeMove(col); 
+                    }
                 }
             }
         }
+
+        // AI MOVE LOGIC
+        if (aiNeedsToMove) {
+            aiTimer += deltaTime;
+            if (aiTimer >= aiMoveDelay) {
+                makeAIMove();
+                aiTimer = 0f;
+                aiNeedsToMove = false;
+            }
+        }
+    }
 
 // 4. DRAWING SECTION
     Gdx.gl.glClearColor(0, 0, 0, 1);
@@ -459,7 +543,9 @@ private void createGameUI() {
 
     // --- LAYER 1: BORDER (The Wallpaper/Screen Edges) ---
     // This will now be visible because the background won't cover the whole screen
-    batch.draw(border, 0, 0, VIRTUAL_WIDTH, VIRTUAL_HEIGHT);
+    // Replace the old border draw with this:
+    Texture activeBorder = isTwoPlayer ? border2p : border;
+    batch.draw(activeBorder, 0, 0, VIRTUAL_WIDTH, VIRTUAL_HEIGHT);
 
     // --- LAYER 2: BACKGROUND (Behind the pieces/holes only) ---
     if (gameState != GameState.INTRO) {
@@ -499,7 +585,7 @@ private void createGameUI() {
             batch.draw(pieceTex, p.x, p.y, size, size);
 
             if (p.y <= p.targetY) {
-                popSound.play();
+                popSound.play(masterVolume);
                 grid[p.row][p.col] = p.player;
                 activeFallingPieces.remove(i);
                 finalizeTurn(p.col, p.player);
@@ -564,7 +650,7 @@ private void createGameUI() {
     }
 
     // --- LAYER 6: PREVIEW PIECE ---
-    if (gameState == GameState.PLAYING && currentPlayer == 1) {
+    if (gameState == GameState.PLAYING && (currentPlayer == 1 || (isTwoPlayer && currentPlayer == 2))) {
         com.badlogic.gdx.math.Vector2 mouse = new com.badlogic.gdx.math.Vector2(Gdx.input.getX(), Gdx.input.getY());
         viewport.unproject(mouse);
 
@@ -574,10 +660,17 @@ private void createGameUI() {
             float previewX = innerX + hoverCol * cellWidth + (cellWidth - size) / 1f + 2.2f;
             float previewY = innerY + ROWS * cellHeight + 10;
 
-            if (grid[0][hoverCol] == 0) batch.setColor(1, 1, 1, 0.5f);
-            else batch.setColor(1, 0, 0, 0.7f);
+            // Choose texture based on current player
+            Texture previewTex = (currentPlayer == 1) ? yellowPiece : redPiece;
 
-            batch.draw(yellowPiece, previewX, previewY, size, size);
+            // Visual feedback if column is full
+            if (grid[0][hoverCol] == 0) {
+                batch.setColor(1, 1, 1, 0.5f); // Transparent preview
+            } else {
+                batch.setColor(1, 0, 0, 0.7f); // Red tint if blocked
+            }
+
+            batch.draw(previewTex, previewX, previewY, size, size);
             batch.setColor(Color.WHITE);
         }
     }
@@ -762,8 +855,12 @@ private void createGameUI() {
         goalLabel.setText("" + scoreGoal);
         difficultyLabel.setText("" + currentDifficulty);
 
-        playerLabel.setText(score);
-        aiLabel.setText (aiScore);
+    playerLabel.setText("" + score);
+        if (isTwoPlayer) {
+            aiLabel.setText("" + aiScore);
+        } else {
+            aiLabel.setText("" + aiScore);
+        }
 
         if (comboMultiplier > 1) {
             comboLabel.setText("x" + comboMultiplier);
@@ -771,9 +868,13 @@ private void createGameUI() {
             comboLabel.setText("");
         }
 
-        if (gameState == GameState.PLAYING) {
+    if (gameState == GameState.PLAYING) {
             messageTable.setVisible(false);
-            statusLabel.setText(currentPlayer == 1 ? "Your Turn" : "AI Thinking...");
+            if (isTwoPlayer) {
+                statusLabel.setText(currentPlayer == 1 ? "P1 Turn" : "P2 Turn");
+            } else {
+                statusLabel.setText(currentPlayer == 1 ? "Your Turn" : "AI Thinking...");
+            }
         } else if (gameState != GameState.INTRO) {
             statusLabel.setText("GAME OVER");
             displayEndGameMessage();
@@ -858,9 +959,9 @@ private void createGameUI() {
 
             float pitch = 1.0f + (comboMultiplier * 0.1f);
             if (useBlast1) {
-                blast1.play(0.8f, pitch, 0);
+                blast1.play(masterVolume);
             } else {
-                blast2.play(0.8f, pitch, 0);
+                blast2.play(masterVolume);
             }
 
             // --- SCREEN SHAKE & SCORE ---
@@ -877,7 +978,7 @@ private void createGameUI() {
         // Check Win/Loss
         if (score >= scoreGoal) {
             gameState = GameState.PLAYER_WIN;
-            winSound.play();
+            winSound.play(masterVolume);
         } else if (aiScore >= scoreGoal) {
             gameState = GameState.AI_WIN;
             loseSound.play();
@@ -885,10 +986,12 @@ private void createGameUI() {
             gameState = (playerID == 1) ? GameState.AI_WIN : GameState.PLAYER_WIN;
             if (gameState == GameState.AI_WIN) loseSound.play();
             else winSound.play();
+        // Inside finalizeTurn(), find the "Switch turns" section:
         } else {
-            // Switch turns
             currentPlayer = (playerID == 1) ? 2 : 1;
-            if (currentPlayer == 2) {
+            
+            // Only trigger AI if we are NOT in two-player mode
+            if (!isTwoPlayer && currentPlayer == 2) {
                 aiNeedsToMove = true;
                 aiTimer = 0f;
             }
@@ -909,7 +1012,7 @@ private void createGameUI() {
         if (targetRow != -1) {
             float size = Math.min(cellWidth, cellHeight) * 0.99f;
             float startX = innerX + col * cellWidth + (cellWidth - size) / 1f + 2.2f;
-            float startY = VIRTUAL_HEIGHT;
+            float startY = 600;
             float targetY = innerY + (ROWS - 1 - targetRow) * cellHeight + (cellHeight - size) / 1f - 3f;
 
             activeFallingPieces.add(new FallingPiece(startX, startY, targetY, currentPlayer, col, targetRow));
