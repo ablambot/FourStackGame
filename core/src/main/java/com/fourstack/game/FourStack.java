@@ -10,6 +10,7 @@ import com.badlogic.gdx.graphics.g2d.BitmapFont;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.scenes.scene2d.Stage;
 import com.badlogic.gdx.scenes.scene2d.InputEvent;
+import com.badlogic.gdx.scenes.scene2d.ui.Image;
 import com.badlogic.gdx.scenes.scene2d.ui.Label;
 import com.badlogic.gdx.scenes.scene2d.ui.SelectBox;
 import com.badlogic.gdx.scenes.scene2d.ui.Skin;
@@ -102,6 +103,9 @@ public class FourStack extends ApplicationAdapter {
     private com.badlogic.gdx.utils.viewport.Viewport viewport;
 
     Texture border2p;
+    Texture menuBg, modeBg;
+    Texture startImg, tutorialImg, settingsImg, exitImg, backImg;
+    Texture easyImg, mediumImg, hardImg, p1Img, p2Img;
     boolean isTwoPlayer = false; // Track if we are in 2P mode
 
     Sound blast1, blast2;
@@ -153,7 +157,9 @@ public class FourStack extends ApplicationAdapter {
     Skin skin;
     Table introTable;
     Table gameTable;
+    Table exitTable;
     Table messageTable;
+    Table modeTable;
     Label playerLabel;
     Label aiLabel;
     Label timeLabel;
@@ -163,10 +169,14 @@ public class FourStack extends ApplicationAdapter {
     Label comboLabel;
     Label messageLabel;
     Label instructionsLabel;
-    TextButton retryButton;
+    com.badlogic.gdx.scenes.scene2d.Group gameHudGroup; // <--- ADD THIS
+
+    Image easyBtn;
+    Image medBtn;
+    Image hardBtn;
 
     // Game state
-    enum GameState { INTRO, PLAYING, PLAYER_WIN, AI_WIN, TIME_UP }
+    enum GameState { INTRO, MODE_SELECT, PLAYING, PLAYER_WIN, AI_WIN, TIME_UP }
     GameState gameState = GameState.INTRO;
 
     // Timer (2 minutes = 120 seconds)
@@ -188,6 +198,24 @@ public class FourStack extends ApplicationAdapter {
         frame = new Texture("frame.png");
         yellowPiece = new Texture("piece_yellow.png");
         redPiece = new Texture("piece_red.png");
+
+        menuBg = new Texture("menubg.png");
+        modeBg = new Texture("modebg.png");
+        
+        // Main Menu Buttons
+        startImg = new Texture("start.png");
+        tutorialImg = new Texture("tutorial.png");
+        settingsImg = new Texture("settings.png");
+        exitImg = new Texture("exitgame.png");
+        backImg = new Texture("back.png");
+        
+        // Mode Menu Buttons
+        easyImg = new Texture("easy.png");
+        mediumImg = new Texture("medium.png");
+        hardImg = new Texture("hard.png");
+        
+        p1Img = new Texture("1p.png");
+        p2Img = new Texture("2p.png");
         shapeRenderer = new ShapeRenderer();
         font = new BitmapFont();
         font.setColor(Color.WHITE);
@@ -215,6 +243,7 @@ public class FourStack extends ApplicationAdapter {
 
         createIntroUI();
         createGameUI();
+        createModeUI(); // New method
 
         // Start with Intro
         introTable.setVisible(true);
@@ -222,194 +251,215 @@ public class FourStack extends ApplicationAdapter {
     }
 
     private void createIntroUI() {
+        // 1. Main Menu Table (Start, Tutorial, Settings)
         introTable = new Table();
         introTable.setFillParent(true);
-        introTable.setBackground(skin.getDrawable("alpha"));
+        introTable.center().padTop(75); // Keeps your vertical alignment
         stage.addActor(introTable);
 
-        Label titleLabel = new Label("FOUR STACK", skin, "subtitle");
-        titleLabel.setFontScale(2f);
-        titleLabel.setColor(Color.GOLD);
+        // 2. Separate Table for Exit Button (Bottom Right)
+        Table exitTable = new Table();
+        exitTable.setFillParent(true);
+        exitTable.bottom().right().pad(20).padBottom(10);; // Pins to corner with 30px breathing room
+        stage.addActor(exitTable);
 
-        Label difficultyTitle = new Label("SELECT DIFFICULTY", skin);
-        final SelectBox<Difficulty> difficultySelect = new SelectBox<>(skin);
-        difficultySelect.setItems(Difficulty.values());
-        difficultySelect.setSelected(currentDifficulty);
+        // Create UI Images
+        Image startBtn = new Image(startImg);
+        Image tutorialBtn = new Image(tutorialImg);
+        Image settingsBtn = new Image(settingsImg);
+        Image exitBtn = new Image(exitImg);
 
-        TextButton startButton = new TextButton("START GAME", skin);
-        TextButton twoplayerButton = new TextButton("TWO PLAYERS", skin);
-        TextButton settingsButton = new TextButton("SETTINGS", skin);
-
-        startButton.addListener(new ClickListener() {
+        // --- BUTTON LOGIC ---
+        startBtn.addListener(new ClickListener() {
             @Override
             public void clicked(InputEvent event, float x, float y) {
-                isTwoPlayer = false; // Set to AI mode
-                applyDifficulty(difficultySelect.getSelected());
-                startGame();
+                gameState = GameState.MODE_SELECT;
+                introTable.setVisible(false);
+                exitTable.setVisible(true); // Hide both tables
+                modeTable.setVisible(true);
             }
-        
-            private void applyDifficulty(Difficulty selected) {
-            currentDifficulty = selected;
-            if (currentDifficulty == Difficulty.EASY) scoreGoal = 2000;
-            else if (currentDifficulty == Difficulty.MEDIUM) scoreGoal = 5000;
-            else if (currentDifficulty == Difficulty.HARD) scoreGoal = 10000;
-        }
-
         });
 
-        twoplayerButton.addListener(new ClickListener() {
+        exitBtn.addListener(new ClickListener() {
             @Override
             public void clicked(InputEvent event, float x, float y) {
-                isTwoPlayer = true; // Set to Human vs Human mode
-                applyDifficulty(difficultySelect.getSelected());
-                startGame();
-            }
-
-        private void applyDifficulty(Difficulty selected) {
-            currentDifficulty = selected;
-            if (currentDifficulty == Difficulty.EASY) scoreGoal = 2000;
-            else if (currentDifficulty == Difficulty.MEDIUM) scoreGoal = 5000;
-            else if (currentDifficulty == Difficulty.HARD) scoreGoal = 10000;
-        }
-
-        });
-
-        introTable.add(titleLabel).padBottom(50).row();
-        introTable.add(difficultyTitle).padBottom(10).row();
-        introTable.add(difficultySelect).width(200).padBottom(30).row();
-        introTable.add(startButton).width(250).height(60).padBottom(15).row();
-        introTable.add(twoplayerButton).width(200).height(50).padBottom(15).row();
-        introTable.add(settingsButton).width(200).height(50);
-
-        settingsButton.addListener(new ClickListener() {
-        @Override
-        public void clicked(InputEvent event, float x, float y) {
-            introTable.setVisible(false);
-            settingsTable.setVisible(true);
-        }
-    });
-
-        // --- SETTINGS TABLE SETUP ---
-        settingsTable = new Table();
-        settingsTable.setFillParent(true);
-        settingsTable.setBackground(skin.getDrawable("alpha")); // Use your skin's background
-        stage.addActor(settingsTable);
-        settingsTable.setVisible(false);
-
-        Label settingsTitle = new Label("SETTINGS", skin, "subtitle");
-        settingsTitle.setColor(Color.GOLD);
-
-        Label volumeLabel = new Label("MASTER VOLUME", skin);
-        
-        // Create a Slider: min 0, max 1, step 0.1
-        final com.badlogic.gdx.scenes.scene2d.ui.Slider volumeSlider = 
-            new com.badlogic.gdx.scenes.scene2d.ui.Slider(0f, 1f, 0.05f, false, skin);
-        volumeSlider.setValue(masterVolume);
-
-        volumeSlider.addListener(new com.badlogic.gdx.scenes.scene2d.utils.ChangeListener() {
-            @Override
-            public void changed(ChangeEvent event, com.badlogic.gdx.scenes.scene2d.Actor actor) {
-                masterVolume = volumeSlider.getValue();
-                updateMasterVolume();
-            }
-            private void updateMasterVolume() {
-            if (backgroundMusic != null) {
-                backgroundMusic.setVolume(masterVolume);
-                }
+                Gdx.app.exit();
             }
         });
 
-        TextButton backButton = new TextButton("BACK", skin);
-        backButton.addListener(new ClickListener() {
-            @Override
-            public void clicked(InputEvent event, float x, float y) {
-                settingsTable.setVisible(false);
-                introTable.setVisible(true);
-            }
-        });
-
-        // Layout
-        settingsTable.add(settingsTitle).padBottom(40).row();
-        settingsTable.add(volumeLabel).padBottom(10).row();
-        settingsTable.add(volumeSlider).width(300).padBottom(40).row();
-        settingsTable.add(backButton).width(200).height(50);
-
+        // --- MAIN LAYOUT ---
+        introTable.add(startBtn).width(226).height(57).padBottom(30).row();
+        introTable.add(tutorialBtn).width(226).height(57).padBottom(30).row();
+        introTable.add(settingsBtn).width(226).height(57);
+        exitTable.add(exitBtn).width(226).height(57);
     }
 
-private void createGameUI() {
-    gameTable = new Table();
-    gameTable.setFillParent(true);
-    stage.addActor(gameTable);
+    private void createModeUI() {
+        // 2. Setup the Mode Selection Table
+        modeTable = new Table();
+        modeTable.setFillParent(true);
+        modeTable.center().padTop(194);
+        stage.addActor(modeTable);
+        modeTable.setVisible(false); // Hidden until Start is clicked
 
-    // 1. INITIALIZE LABELS
-    timeLabel = new Label("", skin);
-    goalLabel = new Label("" , skin);
-    playerLabel = new Label("", skin);
-    aiLabel = new Label("", skin);
-    difficultyLabel = new Label("", skin);
-    statusLabel = new Label("", skin);
-    comboLabel = new Label("", skin);
+        Table exitTable = new Table();
+        exitTable.setFillParent(true);
+        exitTable.bottom().right().pad(20).padBottom(10);; // Pins to corner with 30px breathing room
+        stage.addActor(exitTable);
 
-    // 2. SCALE / ENLARGE (Change these numbers to go bigger/smaller)
-    timeLabel.setFontScale(3.4f);
-    goalLabel.setFontScale(3.4f);
-    difficultyLabel.setFontScale(3.7f);
-    playerLabel.setFontScale(2.9f);
-    aiLabel.setFontScale(2.9f);
-    statusLabel.setFontScale(1.5f);
-    comboLabel.setFontScale(2.9f);
+        easyBtn = new Image(easyImg);
+        medBtn = new Image(mediumImg);
+        hardBtn = new Image(hardImg);
+        Image p1Btn = new Image(p1Img);
+        Image p2Btn = new Image(p2Img);
+        Image backBtn = new Image(backImg);
+        Image exitBtn = new Image(exitImg);
 
-    // 3. SET COLORS
-    playerLabel.setColor(Color.YELLOW);
-    aiLabel.setColor(Color.RED);
-    comboLabel.setColor(Color.GOLD);
-    difficultyLabel.setColor(Color.CYAN);
+        // --- LOGIC ---
+        backBtn.addListener(new ClickListener() {
+            @Override
+            public void clicked(InputEvent event, float x, float y) {
+                gameState = GameState.INTRO;
+                modeTable.setVisible(false);
+                introTable.setVisible(true);
+                exitTable.setVisible(false); // Hide both tables
+            }
+        });
 
-    // 4. POSITIONING (Separate Entities - Adjust X and Y here)
-    // Note: 0,0 is Bottom-Left of the screen
-    timeLabel.setPosition(1267, 626);
-    goalLabel.setPosition(888, 626);
-    
-    difficultyLabel.setPosition(320, 28);
-    
-    statusLabel.setPosition(VIRTUAL_WIDTH / 2f - 50, VIRTUAL_HEIGHT - 50);
-    
-    playerLabel.setPosition(840, 554); // Moved to the right side area
-    aiLabel.setPosition(840, 504);     // Stacked below player score
-    
-    comboLabel.setPosition(1303, 554);
+        exitBtn.addListener(new ClickListener() {
+            @Override
+            public void clicked(InputEvent event, float x, float y) {
+                Gdx.app.exit();
+            }
+        });
 
-    // 5. ADD DIRECTLY TO STAGE (Not the table!)
-    stage.addActor(timeLabel);
-    stage.addActor(goalLabel);
-    stage.addActor(difficultyLabel);
-    stage.addActor(statusLabel);
-    stage.addActor(playerLabel);
-    stage.addActor(aiLabel);
-    stage.addActor(comboLabel);
-
-    // 6. MESSAGE OVERLAY (Keep this as a table so it centers easily)
-    messageLabel = new Label("", skin, "subtitle");
-    messageLabel.setAlignment(Align.center);
-    
-    retryButton = new TextButton("RETRY", skin);
-    retryButton.addListener(new ClickListener() {
+        // --- DIFFICULTY LOGIC ---
+    easyBtn.addListener(new ClickListener() {
         @Override
         public void clicked(InputEvent event, float x, float y) {
-            messageTable.setVisible(false);
-            introTable.setVisible(true);
-            gameTable.setVisible(false);
-            gameState = GameState.INTRO;
+            scoreGoal = 2000;
+            updateDifficultyGlow(easyBtn);
+        }
+    });
+    medBtn.addListener(new ClickListener() {
+        @Override
+        public void clicked(InputEvent event, float x, float y) {
+            scoreGoal = 5000;
+            updateDifficultyGlow(medBtn);
+        }
+    });
+    hardBtn.addListener(new ClickListener() {
+        @Override
+        public void clicked(InputEvent event, float x, float y) {
+            scoreGoal = 10000;
+            updateDifficultyGlow(hardBtn);
         }
     });
 
-    messageTable = new Table();
-    messageTable.setFillParent(true);
-    messageTable.add(messageLabel).padBottom(30).row();
-    messageTable.add(retryButton).width(200).height(60);
-    messageTable.setVisible(false);
-    stage.addActor(messageTable);
-}
+        // --- PLAYER MODE & START LOGIC ---
+        p1Btn.addListener(new ClickListener() {
+            @Override
+            public void clicked(InputEvent event, float x, float y) {
+                isTwoPlayer = false;
+                modeTable.setVisible(false);
+                startGame();
+            }
+        });
+
+        p2Btn.addListener(new ClickListener() {
+            @Override
+            public void clicked(InputEvent event, float x, float y) {
+                isTwoPlayer = true;
+                modeTable.setVisible(false);
+                startGame();
+            }
+        });
+
+    // --- LAYOUT ---
+    Table diffContainer = new Table();
+        diffContainer.add(easyBtn).width(226).height(57);
+        diffContainer.add(medBtn).width(226).height(57);
+        diffContainer.add(hardBtn).width(226).height(57);
+
+        modeTable.add(diffContainer).padBottom(30).row();
+
+        modeTable.add(p1Btn).width(226).height(57).padBottom(30).row();
+        modeTable.add(p2Btn).width(226).height(57).padBottom(30).row();
+        modeTable.add(backBtn).width(226).height(57).padBottom(30);
+        exitTable.add(exitBtn).width(226).height(57);
+    }
+
+    private void updateDifficultyGlow(Image selected) {
+        // Reset all to white (normal)
+        easyBtn.setColor(Color.WHITE);
+        medBtn.setColor(Color.WHITE);
+        hardBtn.setColor(Color.WHITE);
+        
+        // Set selected to Yellow (The "Glow")
+        selected.setColor(Color.YELLOW);
+    }
+    
+    private void createGameUI() {
+        gameTable = new Table();
+        gameTable.setFillParent(true);
+        stage.addActor(gameTable);
+
+        // 1. INITIALIZE LABELS
+        timeLabel = new Label("", skin);
+        goalLabel = new Label("" , skin);
+        playerLabel = new Label("", skin);
+        aiLabel = new Label("", skin);
+        difficultyLabel = new Label("", skin);
+        statusLabel = new Label("", skin);
+        comboLabel = new Label("", skin);
+
+        // 2. SCALE / ENLARGE
+        timeLabel.setFontScale(3.4f);
+        goalLabel.setFontScale(3.4f);
+        difficultyLabel.setFontScale(3.7f);
+        playerLabel.setFontScale(2.9f);
+        aiLabel.setFontScale(2.9f);
+        statusLabel.setFontScale(1.5f);
+        comboLabel.setFontScale(2.9f);
+
+        // 3. SET COLORS
+        playerLabel.setColor(Color.YELLOW);
+        aiLabel.setColor(Color.RED);
+        comboLabel.setColor(Color.GOLD);
+        difficultyLabel.setColor(Color.CYAN);
+
+        // 4. POSITIONING
+        timeLabel.setPosition(1267, 626);
+        goalLabel.setPosition(888, 626);
+        difficultyLabel.setPosition(320, 28);
+        statusLabel.setPosition(VIRTUAL_WIDTH / 2f - 50, VIRTUAL_HEIGHT - 50);
+        playerLabel.setPosition(840, 554); 
+        aiLabel.setPosition(840, 504);     
+        comboLabel.setPosition(1303, 554);
+
+        // 5. ADD TO GROUP INSTEAD OF STAGE
+        gameHudGroup = new com.badlogic.gdx.scenes.scene2d.Group();
+        stage.addActor(gameHudGroup);
+        
+        gameHudGroup.addActor(timeLabel);
+        gameHudGroup.addActor(goalLabel);
+        gameHudGroup.addActor(difficultyLabel);
+        gameHudGroup.addActor(statusLabel);
+        gameHudGroup.addActor(playerLabel);
+        gameHudGroup.addActor(aiLabel);
+        gameHudGroup.addActor(comboLabel);
+        
+        gameHudGroup.setVisible(false); // <--- Hides the scores initially!
+
+        // 6. MESSAGE OVERLAY
+        messageLabel = new Label("", skin, "subtitle");
+        messageLabel.setAlignment(Align.center);
+        messageTable = new Table();
+        messageTable.setFillParent(true);
+        messageTable.add(messageLabel).padBottom(30).row();
+        messageTable.setVisible(false);
+        stage.addActor(messageTable);
+    }
 
     private void startGame() {
         grid = new int[ROWS][COLS];
@@ -421,8 +471,11 @@ private void createGameUI() {
         aiScore = 0;
         score = 0;
         comboMultiplier = 0;
+        
         introTable.setVisible(false);
+        modeTable.setVisible(false); 
         gameTable.setVisible(true);
+        gameHudGroup.setVisible(true); // <--- Show HUD now!
         messageTable.setVisible(false);
     }
 
@@ -539,35 +592,31 @@ private void createGameUI() {
     float boardDrawX = innerX - (boardDrawW * (63f / 240f));
     float boardDrawY = innerY - (boardDrawH * (97f / 256f));
 
-    batch.begin();
-
     // --- LAYER 1: BORDER (The Wallpaper/Screen Edges) ---
     // This will now be visible because the background won't cover the whole screen
     // Replace the old border draw with this:
-    Texture activeBorder = isTwoPlayer ? border2p : border;
-    batch.draw(activeBorder, 0, 0, VIRTUAL_WIDTH, VIRTUAL_HEIGHT);
-
-    // --- LAYER 2: BACKGROUND (Behind the pieces/holes only) ---
-    if (gameState != GameState.INTRO) {
-// 1. Define the scale (0.95 = 95% size)
-    float scalee = 0.98f;
-
-    // 2. Calculate new Width and Height
-    float scaledW = boardDrawW * scalee;
-    float scaledH = boardDrawH * scalee;
-
-    // 3. Offset the X and Y to keep it centered
-    // (Original Dim - New Dim) / 2 gives the padding needed to center
-    float scaledX = boardDrawX + (boardDrawW - scaledW) / 2f;
-    float scaledY = (boardDrawY + (boardDrawH - scaledH) / 2f) + 1f;
-
-    // 4. Draw using the new values
-    batch.draw(background, scaledX, scaledY, scaledW, scaledH);
+    batch.begin();
+    if (gameState == GameState.INTRO) {
+        batch.draw(menuBg, 0, 0, VIRTUAL_WIDTH, VIRTUAL_HEIGHT);
+    } else if (gameState == GameState.MODE_SELECT) {
+        batch.draw(modeBg, 0, 0, VIRTUAL_WIDTH, VIRTUAL_HEIGHT);
+    } else {
+        // Regular Game Border
+        Texture activeBorder = isTwoPlayer ? border2p : border;
+        batch.draw(activeBorder, 0, 0, VIRTUAL_WIDTH, VIRTUAL_HEIGHT);
     }
 
+    // --- LAYER 2: BACKGROUND (Behind the pieces/holes only) ---
+    if (gameState != GameState.INTRO && gameState != GameState.MODE_SELECT) {
+        float scalee = 0.98f;
+        float scaledW = boardDrawW * scalee;
+        float scaledH = boardDrawH * scalee;
+        float scaledX = boardDrawX + (boardDrawW - scaledW) / 2f;
+        float scaledY = (boardDrawY + (boardDrawH - scaledH) / 2f) + 1f;
+        batch.draw(background, scaledX, scaledY, scaledW, scaledH);
+    }
     // --- LAYER 3: PIECES (Stationary and Falling) ---
-    if (gameState != GameState.INTRO) {
-        // ... (Keep your existing Falling Animation Loop here) ...
+    if (gameState != GameState.INTRO && gameState != GameState.MODE_SELECT) {
         for (int i = activeFallingPieces.size() - 1; i >= 0; i--) {
             FallingPiece p = activeFallingPieces.get(i);
             p.update(deltaTime);
@@ -592,7 +641,6 @@ private void createGameUI() {
             }
         }
 
-        // ... (Keep your existing Stationary Grid Pieces Loop here) ...
         for (int r = 0; r < ROWS; r++) {
             for (int c = 0; c < COLS; c++) {
                 if (grid[r][c] != 0) {
@@ -607,13 +655,11 @@ private void createGameUI() {
     }
 
     // --- LAYER 4: THE BOARD (The Mask) ---
-    if (gameState != GameState.INTRO) {
-        // Use the coordinates we calculated at the top
+    if (gameState != GameState.INTRO && gameState != GameState.MODE_SELECT) {
         batch.draw(board, boardDrawX, boardDrawY, boardDrawW, boardDrawH);
     }
 
-// --- ADD STEP 4 (PROCEDURAL EFFECTS) RIGHT HERE ---
-    batch.end(); // We must close the batch to let ShapeRenderer draw
+    batch.end();
 
     Gdx.gl.glEnable(GL20.GL_BLEND);
     Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE); // Makes it look like a neon glow
@@ -645,7 +691,7 @@ private void createGameUI() {
     // ------------------------------------------------
 
     // --- LAYER 5: THE FRAME (Outer Plastic) ---
-    if (gameState != GameState.INTRO) {
+    if (gameState != GameState.INTRO && gameState != GameState.MODE_SELECT) {
         batch.draw(frame, frameX, frameY, frameWidth, frameHeight);
     }
 
@@ -899,27 +945,63 @@ private void createGameUI() {
 
     }
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     @Override
-    public void dispose() {
-        batch.dispose();
-        board.dispose();
-        frame.dispose();
-        border.dispose();
-        yellowPiece.dispose();
-        redPiece.dispose();
-        shapeRenderer.dispose();
-        font.dispose();
-        stage.dispose();
-        skin.dispose();
-        
-        // Dispose audio
-        if (backgroundMusic != null) backgroundMusic.dispose();
-        if (popSound != null) popSound.dispose();
-        if (winSound != null) winSound.dispose();
-        if (loseSound != null) loseSound.dispose();
-        if (blast1 != null) blast1.dispose();
-        if (blast2 != null) blast2.dispose();
-    }
+        public void dispose() {
+            // Systems & UI
+            batch.dispose();
+            shapeRenderer.dispose();
+            font.dispose();
+            stage.dispose();
+            skin.dispose();
+            
+            // Game Board Textures
+            board.dispose();
+            frame.dispose();
+            border.dispose();
+            border2p.dispose();
+            background.dispose();
+            yellowPiece.dispose();
+            redPiece.dispose();
+
+            // Menu & Mode Textures
+            menuBg.dispose();
+            modeBg.dispose();
+            startImg.dispose();
+            tutorialImg.dispose();
+            settingsImg.dispose();
+            exitImg.dispose();
+            easyImg.dispose();
+            mediumImg.dispose();
+            hardImg.dispose();
+            p1Img.dispose();
+            p2Img.dispose();
+            
+            // Audio
+            if (backgroundMusic != null) backgroundMusic.dispose();
+            if (popSound != null) popSound.dispose();
+            if (winSound != null) winSound.dispose();
+            if (loseSound != null) loseSound.dispose();
+            if (blast1 != null) blast1.dispose();
+            if (blast2 != null) blast2.dispose();
+        }
 
     // --- ADD THIS AT THE BOTTOM OF YOUR CLASS ---
 
@@ -959,9 +1041,9 @@ private void createGameUI() {
 
             float pitch = 1.0f + (comboMultiplier * 0.1f);
             if (useBlast1) {
-                blast1.play(masterVolume);
+                blast1.play(0.8f, pitch, 0);
             } else {
-                blast2.play(masterVolume);
+                blast2.play(0.8f, pitch, 0);
             }
 
             // --- SCREEN SHAKE & SCORE ---
