@@ -120,7 +120,7 @@ public class FourStack extends ApplicationAdapter {
     float cellWidth, cellHeight;
     enum Difficulty { EASY, MEDIUM, HARD }
     Difficulty currentDifficulty = Difficulty.MEDIUM; // Default
-    int scoreGoal = 2000; // The "High Score" to reach
+    int scoreGoal = 1000; // The "High Score" to reach
     int score = 0;       // Player score
     int aiScore = 0;     // AI score
     int ROWS = 6;
@@ -142,8 +142,15 @@ public class FourStack extends ApplicationAdapter {
     Texture yellowPiece;
     Texture redPiece;
     Texture background;
-    // Texture blastTexture;
+    Texture settingsBg;
+    Texture volumeImg;
     BitmapFont font;
+    Texture pauseBtnImg;
+    Texture pausedBg;
+
+    Texture resumeImg;
+    Texture restartImg;
+    Texture settingsPauseImg; // reuse if same as settings.png
 
     // Sound effects
     Music backgroundMusic;
@@ -160,6 +167,8 @@ public class FourStack extends ApplicationAdapter {
     Table exitTable;
     Table messageTable;
     Table modeTable;
+    Table pauseTable;
+    Image pauseButton;
     Label playerLabel;
     Label aiLabel;
     Label timeLabel;
@@ -169,6 +178,8 @@ public class FourStack extends ApplicationAdapter {
     Label comboLabel;
     Label messageLabel;
     Label instructionsLabel;
+    Label p2TimeLabel;
+    Label p2ComboLabel;
     com.badlogic.gdx.scenes.scene2d.Group gameHudGroup; // <--- ADD THIS
 
     Image easyBtn;
@@ -176,17 +187,23 @@ public class FourStack extends ApplicationAdapter {
     Image hardBtn;
 
     // Game state
-    enum GameState { INTRO, MODE_SELECT, PLAYING, PLAYER_WIN, AI_WIN, TIME_UP }
+    enum GameState { INTRO, MODE_SELECT, PLAYING, PAUSED, PLAYER_WIN, SETTINGS, AI_WIN, TIME_UP }
     GameState gameState = GameState.INTRO;
 
     // Timer (2 minutes = 120 seconds)
-    float timeRemaining = 120f;
-
+    float p1TimeRemaining;
+    float p2TimeRemaining;
+    int p1Combo = 1;
+    int p2Combo = 1;
     // AI
     Random random = new Random();
     float aiMoveDelay = 0.5f; // AI waits 0.5s before moving
     float aiTimer = 0f;
     boolean aiNeedsToMove = false;
+    private Image pauseTriggerBtn;
+    private boolean comingFromPause = false; // Add this here
+    private Image easyBtnPause, medBtnPause, hardBtnPause;
+    private GameState stateBeforePause = GameState.PLAYING;
 
     @Override
     public void create() {
@@ -201,6 +218,7 @@ public class FourStack extends ApplicationAdapter {
 
         menuBg = new Texture("menubg.png");
         modeBg = new Texture("modebg.png");
+        settingsBg = new Texture("settingsbg.png");
         
         // Main Menu Buttons
         startImg = new Texture("start.png");
@@ -208,6 +226,7 @@ public class FourStack extends ApplicationAdapter {
         settingsImg = new Texture("settings.png");
         exitImg = new Texture("exitgame.png");
         backImg = new Texture("back.png");
+        volumeImg = new Texture("volume.png");
         
         // Mode Menu Buttons
         easyImg = new Texture("easy.png");
@@ -221,6 +240,12 @@ public class FourStack extends ApplicationAdapter {
         font.setColor(Color.WHITE);
         font.getData().setScale(2f);
 
+        pauseBtnImg = new Texture("pausebutton.png");
+        pausedBg = new Texture("paused_clear.png");
+
+        resumeImg = new Texture("resume.png");
+        restartImg = new Texture("restart.png");
+        settingsPauseImg = new Texture("settings.png"); // reuse
         // Load and play background music
         backgroundMusic = Gdx.audio.newMusic(Gdx.files.internal("backround_audio.mp3"));
         backgroundMusic.setLooping(true);
@@ -244,6 +269,8 @@ public class FourStack extends ApplicationAdapter {
         createIntroUI();
         createGameUI();
         createModeUI(); // New method
+        createSettingsUI();
+        createPauseUI();
 
         // Start with Intro
         introTable.setVisible(true);
@@ -258,7 +285,7 @@ public class FourStack extends ApplicationAdapter {
         stage.addActor(introTable);
 
         // 2. Separate Table for Exit Button (Bottom Right)
-        Table exitTable = new Table();
+        exitTable = new Table();
         exitTable.setFillParent(true);
         exitTable.bottom().right().pad(20).padBottom(10);; // Pins to corner with 30px breathing room
         stage.addActor(exitTable);
@@ -277,6 +304,16 @@ public class FourStack extends ApplicationAdapter {
                 introTable.setVisible(false);
                 exitTable.setVisible(true); // Hide both tables
                 modeTable.setVisible(true);
+            }
+        });
+        // ADD THIS LISTENER:
+        settingsBtn.addListener(new ClickListener() {
+            @Override
+            public void clicked(InputEvent event, float x, float y) {
+                gameState = GameState.SETTINGS;
+                introTable.setVisible(false);
+                exitTable.setVisible(false); // Hide the main exit button
+                settingsTable.setVisible(true);
             }
         });
 
@@ -302,19 +339,13 @@ public class FourStack extends ApplicationAdapter {
         stage.addActor(modeTable);
         modeTable.setVisible(false); // Hidden until Start is clicked
 
-        Table exitTable = new Table();
-        exitTable.setFillParent(true);
-        exitTable.bottom().right().pad(20).padBottom(10);; // Pins to corner with 30px breathing room
-        stage.addActor(exitTable);
-
         easyBtn = new Image(easyImg);
         medBtn = new Image(mediumImg);
         hardBtn = new Image(hardImg);
         Image p1Btn = new Image(p1Img);
         Image p2Btn = new Image(p2Img);
         Image backBtn = new Image(backImg);
-        Image exitBtn = new Image(exitImg);
-
+        
         // --- LOGIC ---
         backBtn.addListener(new ClickListener() {
             @Override
@@ -322,14 +353,7 @@ public class FourStack extends ApplicationAdapter {
                 gameState = GameState.INTRO;
                 modeTable.setVisible(false);
                 introTable.setVisible(true);
-                exitTable.setVisible(false); // Hide both tables
-            }
-        });
-
-        exitBtn.addListener(new ClickListener() {
-            @Override
-            public void clicked(InputEvent event, float x, float y) {
-                Gdx.app.exit();
+                exitTable.setVisible(true);
             }
         });
 
@@ -337,21 +361,21 @@ public class FourStack extends ApplicationAdapter {
     easyBtn.addListener(new ClickListener() {
         @Override
         public void clicked(InputEvent event, float x, float y) {
-            scoreGoal = 2000;
+            scoreGoal = 1000;
             updateDifficultyGlow(easyBtn);
         }
     });
     medBtn.addListener(new ClickListener() {
         @Override
         public void clicked(InputEvent event, float x, float y) {
-            scoreGoal = 5000;
+            scoreGoal = 3000;
             updateDifficultyGlow(medBtn);
         }
     });
     hardBtn.addListener(new ClickListener() {
         @Override
         public void clicked(InputEvent event, float x, float y) {
-            scoreGoal = 10000;
+            scoreGoal = 5000;
             updateDifficultyGlow(hardBtn);
         }
     });
@@ -380,75 +404,265 @@ public class FourStack extends ApplicationAdapter {
         diffContainer.add(easyBtn).width(226).height(57);
         diffContainer.add(medBtn).width(226).height(57);
         diffContainer.add(hardBtn).width(226).height(57);
-
         modeTable.add(diffContainer).padBottom(30).row();
 
         modeTable.add(p1Btn).width(226).height(57).padBottom(30).row();
         modeTable.add(p2Btn).width(226).height(57).padBottom(30).row();
         modeTable.add(backBtn).width(226).height(57).padBottom(30);
-        exitTable.add(exitBtn).width(226).height(57);
+        scoreGoal = 3000;            
+        updateDifficultyGlow(medBtn);
     }
 
     private void updateDifficultyGlow(Image selected) {
-        // Reset all to white (normal)
         easyBtn.setColor(Color.WHITE);
         medBtn.setColor(Color.WHITE);
         hardBtn.setColor(Color.WHITE);
-        
-        // Set selected to Yellow (The "Glow")
         selected.setColor(Color.YELLOW);
     }
     
+    private void createSettingsUI() {
+        settingsTable = new Table();
+        settingsTable.setFillParent(true);
+        settingsTable.center().padTop(-13); // Match the alignment of other menus
+        stage.addActor(settingsTable);
+        settingsTable.setVisible(false); // Hidden initially
+
+        Image volumeLabel = new Image(volumeImg);
+        Image backBtnSettings = new Image(backImg);
+
+        // Create the Volume Slider (min 0.0, max 1.0, step 0.05)
+        com.badlogic.gdx.scenes.scene2d.ui.Slider volumeSlider = 
+            new com.badlogic.gdx.scenes.scene2d.ui.Slider(0f, 1f, 0.05f, false, skin);
+        
+        // Set its starting position to your default volume
+        volumeSlider.setColor(Color.valueOf("ffffffff"));
+        volumeSlider.setValue(masterVolume); 
+        
+
+        // Add a listener to change the volume when the slider moves
+        volumeSlider.addListener(new com.badlogic.gdx.scenes.scene2d.utils.ChangeListener() {
+            @Override
+            public void changed(ChangeEvent event, com.badlogic.gdx.scenes.scene2d.Actor actor) {
+                masterVolume = volumeSlider.getValue();
+                backgroundMusic.setVolume(masterVolume); // Updates music instantly
+            }
+        });
+
+        // Back Button Logic
+    backBtnSettings.addListener(new ClickListener() {
+            @Override
+            public void clicked(InputEvent event, float x, float y) {
+                
+                if (comingFromPause) {
+                    // GO BACK TO PAUSE MENU
+                    gameState = GameState.PAUSED;
+                    settingsTable.setVisible(false);
+                    pauseTable.setVisible(true);
+                    comingFromPause = false; // Reset the flag so it doesn't get stuck!
+                } else {
+                    // GO BACK TO MAIN MENU
+                    gameState = GameState.INTRO;
+                    settingsTable.setVisible(false);
+                    introTable.setVisible(true);
+                    if (exitTable != null) {
+                        exitTable.setVisible(true);
+                    }
+                }
+                
+            }
+        });
+
+        // --- LAYOUT ---
+        // Put the volume image and the slider on the same row
+        settingsTable.add(volumeLabel).width(226).height(57).padBottom(30).padRight(20);
+        settingsTable.add(volumeSlider).width(300).height(50).padBottom(30).row();
+        settingsTable.add(backBtnSettings).colspan(2).width(226).height(57);
+    }
+
+    // Declare this at the top of your class with your other Tables
+        private Table pauseExitTable;
+
+        private void createPauseUI() {
+            pauseTable = new Table();
+            pauseTable.setFillParent(true);
+            pauseTable.center().padTop(194);
+            stage.addActor(pauseTable);
+            pauseTable.setVisible(false);
+            pauseExitTable = new Table();
+            pauseExitTable.setFillParent(true);
+            // Matching your IntroUI Exit location exactly:
+            pauseExitTable.bottom().right().pad(20).padBottom(10); 
+            stage.addActor(pauseExitTable);
+            pauseExitTable.setVisible(false);
+
+            // Buttons
+            Image resumeBtn = new Image(resumeImg);
+            Image restartBtn = new Image(restartImg);
+            Image settingsBtn = new Image(settingsPauseImg);
+            easyBtnPause = new Image(easyImg);
+            medBtnPause = new Image(mediumImg);
+            hardBtnPause = new Image(hardImg);
+            Image exitBtnPause = new Image(exitImg); // Your Exit image
+
+            // --- BUTTON LOGIC ---
+
+            resumeBtn.addListener(new ClickListener() {
+                @Override
+                public void clicked(InputEvent event, float x, float y) {
+                    gameState = stateBeforePause; // <--- Return to PLAYING or GAME OVER
+                    pauseTable.setVisible(false);
+                    pauseExitTable.setVisible(false); 
+                    gameHudGroup.setVisible(true);
+                }
+            });
+
+            restartBtn.addListener(new ClickListener() {
+                @Override
+                public void clicked(InputEvent event, float x, float y) {
+                    pauseTable.setVisible(false);
+                    pauseExitTable.setVisible(false); // Hide the corner exit button
+                    startGame();
+                }
+            });
+
+            exitBtnPause.addListener(new ClickListener() {
+                @Override
+                public void clicked(InputEvent event, float x, float y) {
+                    gameState = GameState.INTRO;
+                    pauseTable.setVisible(false);
+                    pauseExitTable.setVisible(false); // Hide this one
+                    gameHudGroup.setVisible(false);
+                    introTable.setVisible(true);
+                    exitTable.setVisible(true);      // Show the Intro's exit button
+                }
+            });
+
+            settingsBtn.addListener(new ClickListener() {
+                @Override
+                public void clicked(InputEvent event, float x, float y) {
+                    comingFromPause = true;
+                    gameState = GameState.SETTINGS;
+                    pauseTable.setVisible(false);
+                    settingsTable.setVisible(true);
+                }
+            });
+            
+            // --- DIFFICULTY LOGIC IN createPauseUI ---
+            easyBtnPause.addListener(new ClickListener() {
+                @Override
+                public void clicked(InputEvent event, float x, float y) {
+                    scoreGoal = 1000;
+                    currentDifficulty = Difficulty.EASY; // Update the Enum for the HUD label
+                    p1TimeRemaining = 120f;              // Reset/Update time for Easy
+                    p2TimeRemaining = 120f;
+                    updateDifficultyGlowPause(easyBtnPause);
+                }
+            });
+
+            medBtnPause.addListener(new ClickListener() {
+                @Override
+                public void clicked(InputEvent event, float x, float y) {
+                    scoreGoal = 3000;
+                    currentDifficulty = Difficulty.MEDIUM;
+                    p1TimeRemaining = 100f;
+                    p2TimeRemaining = 100f;
+                    updateDifficultyGlowPause(medBtnPause);
+                }
+            });
+
+            hardBtnPause.addListener(new ClickListener() {
+                @Override
+                public void clicked(InputEvent event, float x, float y) {
+                    scoreGoal = 5000;
+                    currentDifficulty = Difficulty.HARD;
+                    p1TimeRemaining = 80f;
+                    p2TimeRemaining = 80f;
+                    updateDifficultyGlowPause(hardBtnPause);
+                }
+            });
+
+            // --- LAYOUT ---
+            pauseTable.setBackground(new Image(pausedBg).getDrawable());
+            
+            // Main Pause Menu Layout (No Exit Button here)
+            pauseTable.add(resumeBtn).width(226).height(57).colspan(3).padBottom(30).row();
+            pauseTable.add(easyBtnPause).width(226).height(57).padBottom(30);
+            pauseTable.add(medBtnPause).width(226).height(57).padBottom(30);
+            pauseTable.add(hardBtnPause).width(226).height(57).padBottom(30).row();
+            pauseTable.add(restartBtn).width(226).height(57).colspan(3).padBottom(30).row();
+            pauseTable.add(settingsBtn).width(226).height(57).colspan(3).padBottom(30);
+
+            // --- CORNER LAYOUT ---
+            // Adding the exit button to the separate corner table
+            pauseExitTable.add(exitBtnPause).width(226).height(57);
+        }
+        private void updateDifficultyGlowPause(Image selected) {
+            easyBtnPause.setColor(Color.WHITE);
+            medBtnPause.setColor(Color.WHITE);
+            hardBtnPause.setColor(Color.WHITE);
+            selected.setColor(Color.YELLOW); // Highlighting the selected difficulty
+        }
+
+
+        
     private void createGameUI() {
         gameTable = new Table();
         gameTable.setFillParent(true);
         stage.addActor(gameTable);
 
         // 1. INITIALIZE LABELS
-        timeLabel = new Label("", skin);
+        timeLabel = new Label("", skin); // P1 Timer
+        p2TimeLabel = new Label("", skin); // P2 Timer
         goalLabel = new Label("" , skin);
         playerLabel = new Label("", skin);
         aiLabel = new Label("", skin);
         difficultyLabel = new Label("", skin);
         statusLabel = new Label("", skin);
         comboLabel = new Label("", skin);
+        p2ComboLabel = new Label("", skin); // P2 Combo <--- ADDED
 
         // 2. SCALE / ENLARGE
-        timeLabel.setFontScale(3.4f);
+        timeLabel.setFontScale(2.95f);
+        p2TimeLabel.setFontScale(2.95f);
         goalLabel.setFontScale(3.4f);
         difficultyLabel.setFontScale(3.7f);
-        playerLabel.setFontScale(2.9f);
-        aiLabel.setFontScale(2.9f);
+        playerLabel.setFontScale(2.95f);
+        aiLabel.setFontScale(2.95f);
         statusLabel.setFontScale(1.5f);
         comboLabel.setFontScale(2.9f);
+        p2ComboLabel.setFontScale(2.9f); // <--- ADDED
 
         // 3. SET COLORS
         playerLabel.setColor(Color.YELLOW);
         aiLabel.setColor(Color.RED);
         comboLabel.setColor(Color.GOLD);
         difficultyLabel.setColor(Color.CYAN);
+        
 
         // 4. POSITIONING
-        timeLabel.setPosition(1267, 626);
-        goalLabel.setPosition(888, 626);
+        timeLabel.setPosition(1075, 568);
+        p2TimeLabel.setPosition(1075, 518);
+        goalLabel.setPosition(877, 626);
         difficultyLabel.setPosition(320, 28);
         statusLabel.setPosition(VIRTUAL_WIDTH / 2f - 50, VIRTUAL_HEIGHT - 50);
-        playerLabel.setPosition(840, 554); 
-        aiLabel.setPosition(840, 504);     
-        comboLabel.setPosition(1303, 554);
+        playerLabel.setPosition(832, 568); 
+        aiLabel.setPosition(832, 518);     
+        comboLabel.setPosition(1282, 568);
+        p2ComboLabel.setPosition(1282, 518);
 
         // 5. ADD TO GROUP INSTEAD OF STAGE
         gameHudGroup = new com.badlogic.gdx.scenes.scene2d.Group();
         stage.addActor(gameHudGroup);
         
         gameHudGroup.addActor(timeLabel);
+        gameHudGroup.addActor(p2TimeLabel);
         gameHudGroup.addActor(goalLabel);
         gameHudGroup.addActor(difficultyLabel);
         gameHudGroup.addActor(statusLabel);
         gameHudGroup.addActor(playerLabel);
         gameHudGroup.addActor(aiLabel);
         gameHudGroup.addActor(comboLabel);
-        
+        gameHudGroup.addActor(p2ComboLabel); // <--- ADDED
         gameHudGroup.setVisible(false); // <--- Hides the scores initially!
 
         // 6. MESSAGE OVERLAY
@@ -459,13 +673,48 @@ public class FourStack extends ApplicationAdapter {
         messageTable.add(messageLabel).padBottom(30).row();
         messageTable.setVisible(false);
         stage.addActor(messageTable);
+
+        // 7. Pause
+        pauseTriggerBtn = new Image(new Texture(Gdx.files.internal("pausebutton.png")));
+        pauseTriggerBtn.setSize(70, 70); 
+        pauseTriggerBtn.setPosition(VIRTUAL_WIDTH - 75, VIRTUAL_HEIGHT - 75); 
+        pauseTriggerBtn.addListener(new ClickListener() {
+                    @Override
+                    public void clicked(InputEvent event, float x, float y) {
+                        // Allow clicking during PLAYING and GAME OVER states
+                        if (gameState == GameState.PLAYING || 
+                            gameState == GameState.PLAYER_WIN || 
+                            gameState == GameState.AI_WIN || 
+                            gameState == GameState.TIME_UP) {
+                            
+                            stateBeforePause = gameState; // <--- Save the state!
+                            gameState = GameState.PAUSED;
+                            gameHudGroup.setVisible(false); 
+                            pauseTable.setVisible(true);    
+                            pauseExitTable.setVisible(true);
+                            
+                            if (currentDifficulty == Difficulty.EASY) updateDifficultyGlowPause(easyBtnPause);
+                            else if (currentDifficulty == Difficulty.MEDIUM) updateDifficultyGlowPause(medBtnPause);
+                            else if (currentDifficulty == Difficulty.HARD) updateDifficultyGlowPause(hardBtnPause);
+                        }
+                    }
+                });
+        gameHudGroup.addActor(pauseTriggerBtn);
     }
 
     private void startGame() {
         grid = new int[ROWS][COLS];
         gameState = GameState.PLAYING;
-        timeRemaining = 120f;
-        currentPlayer = 1; 
+
+        float startTime;
+        if (scoreGoal == 1000)      startTime = 120f; // Easy: 2:00
+        else if (scoreGoal == 3000) startTime = 100f; // Med: 1:40
+        else                        startTime = 80f;  // Hard: 1:20
+
+        p1TimeRemaining = startTime;
+        p2TimeRemaining = startTime;
+
+        currentPlayer = 1;
         aiNeedsToMove = false;
         aiTimer = 0f;
         aiScore = 0;
@@ -488,23 +737,6 @@ public class FourStack extends ApplicationAdapter {
     @Override
     public void render() {
         float deltaTime = Gdx.graphics.getDeltaTime();
-        
-        // 1. Handle Key Inputs (Difficulty & Reset)
-        if (Gdx.input.isKeyJustPressed(com.badlogic.gdx.Input.Keys.NUM_1)) { currentDifficulty = Difficulty.EASY; scoreGoal = 2000; }
-        if (Gdx.input.isKeyJustPressed(com.badlogic.gdx.Input.Keys.NUM_2)) { currentDifficulty = Difficulty.MEDIUM; scoreGoal = 5000; }
-        if (Gdx.input.isKeyJustPressed(com.badlogic.gdx.Input.Keys.NUM_3)) { currentDifficulty = Difficulty.HARD; scoreGoal = 10000; }
-        
-        if (Gdx.input.isKeyJustPressed(com.badlogic.gdx.Input.Keys.R)) {
-            grid = new int[ROWS][COLS];
-            gameState = GameState.PLAYING;
-            timeRemaining = 120f;
-            currentPlayer = 1; 
-            aiNeedsToMove = false;
-            aiTimer = 0f;
-            aiScore = 0;
-            score = 0;
-            comboMultiplier = 0;
-        }
 
         // 2. COORDINATE MATH (Shifted to the left half)
         float scale = 2.5f;
@@ -533,11 +765,25 @@ public class FourStack extends ApplicationAdapter {
         if (gameState == GameState.INTRO) {
             // Nothing special here, Scene2D handles the intro UI
         } else if (gameState == GameState.PLAYING) {
-            timeRemaining -= deltaTime;
-            if (timeRemaining <= 0) {
-                timeRemaining = 0;
-                gameState = GameState.TIME_UP;
-                loseSound.play();
+            // 1. COUNTDOWN LOGIC
+            if (currentPlayer == 1) {
+                p1TimeRemaining -= deltaTime;
+                if (p1TimeRemaining <= 0) {
+                    p1TimeRemaining = 0;
+                    gameState = GameState.AI_WIN; // P1 ran out of time, so P2/AI wins
+                    loseSound.play();
+                } else if (gameState == GameState.PAUSED) {
+                // 🚫 DO NOTHING → this freezes the game
+            }
+            } else if (currentPlayer == 2 && isTwoPlayer) {
+                // Only tick down if it's 2P mode or if you want the AI to have a limit
+                p2TimeRemaining -= deltaTime; 
+                if (p2TimeRemaining <= 0) {
+                    p2TimeRemaining = 0;
+                    gameState = GameState.PLAYER_WIN; // P2 ran out of time, P1 wins
+                    winSound.play();
+                }
+                
             }
 
             // PLAYER CLICK DETECTION
@@ -600,14 +846,15 @@ public class FourStack extends ApplicationAdapter {
         batch.draw(menuBg, 0, 0, VIRTUAL_WIDTH, VIRTUAL_HEIGHT);
     } else if (gameState == GameState.MODE_SELECT) {
         batch.draw(modeBg, 0, 0, VIRTUAL_WIDTH, VIRTUAL_HEIGHT);
+    } else if (gameState == GameState.SETTINGS) { // <--- ADD THIS BLOCK
+        batch.draw(settingsBg, 0, 0, VIRTUAL_WIDTH, VIRTUAL_HEIGHT);
     } else {
         // Regular Game Border
         Texture activeBorder = isTwoPlayer ? border2p : border;
         batch.draw(activeBorder, 0, 0, VIRTUAL_WIDTH, VIRTUAL_HEIGHT);
     }
-
     // --- LAYER 2: BACKGROUND (Behind the pieces/holes only) ---
-    if (gameState != GameState.INTRO && gameState != GameState.MODE_SELECT) {
+    if (gameState != GameState.INTRO && gameState != GameState.MODE_SELECT && gameState != GameState.SETTINGS) {
         float scalee = 0.98f;
         float scaledW = boardDrawW * scalee;
         float scaledH = boardDrawH * scalee;
@@ -616,7 +863,7 @@ public class FourStack extends ApplicationAdapter {
         batch.draw(background, scaledX, scaledY, scaledW, scaledH);
     }
     // --- LAYER 3: PIECES (Stationary and Falling) ---
-    if (gameState != GameState.INTRO && gameState != GameState.MODE_SELECT) {
+    if (gameState != GameState.INTRO && gameState != GameState.MODE_SELECT && gameState != GameState.SETTINGS) {
         for (int i = activeFallingPieces.size() - 1; i >= 0; i--) {
             FallingPiece p = activeFallingPieces.get(i);
             p.update(deltaTime);
@@ -655,7 +902,7 @@ public class FourStack extends ApplicationAdapter {
     }
 
     // --- LAYER 4: THE BOARD (The Mask) ---
-    if (gameState != GameState.INTRO && gameState != GameState.MODE_SELECT) {
+    if (gameState != GameState.INTRO && gameState != GameState.MODE_SELECT && gameState != GameState.SETTINGS) {
         batch.draw(board, boardDrawX, boardDrawY, boardDrawW, boardDrawH);
     }
 
@@ -691,7 +938,7 @@ public class FourStack extends ApplicationAdapter {
     // ------------------------------------------------
 
     // --- LAYER 5: THE FRAME (Outer Plastic) ---
-    if (gameState != GameState.INTRO && gameState != GameState.MODE_SELECT) {
+    if (gameState != GameState.INTRO && gameState != GameState.MODE_SELECT && gameState != GameState.SETTINGS) {
         batch.draw(frame, frameX, frameY, frameWidth, frameHeight);
     }
 
@@ -883,11 +1130,6 @@ public class FourStack extends ApplicationAdapter {
                 }
             }
         }
-
-        if (foundType != 0) {
-            float bonus = (score < 5000) ? 8f : 3f;
-            timeRemaining += bonus;
-        }
         
         return foundType; // Returns 0, 1, 2, or 3
     }
@@ -895,73 +1137,108 @@ public class FourStack extends ApplicationAdapter {
     void updateAndDrawUI() {
         if (gameState == GameState.INTRO) return;
         
-        int minutes = (int) (timeRemaining / 60);
-        int seconds = (int) (timeRemaining % 60);
-        timeLabel.setText(String.format("%d:%02d", minutes, seconds));
-        goalLabel.setText("" + scoreGoal);
-        difficultyLabel.setText("" + currentDifficulty);
+        pauseTriggerBtn.setVisible(gameState == GameState.PLAYING || 
+                                   gameState == GameState.PLAYER_WIN || 
+                                   gameState == GameState.AI_WIN || 
+                                   gameState == GameState.TIME_UP);
 
-    playerLabel.setText("" + score);
-        if (isTwoPlayer) {
-            aiLabel.setText("" + aiScore);
+        // 1. --- TIMER LOGIC & PULSING EFFECT ---
+        int m1 = (int) (p1TimeRemaining / 60);
+        int s1 = (int) (p1TimeRemaining % 60);
+        timeLabel.setText(String.format("%d:%02d", m1, s1));
+
+        // Pulse P1 Timer Red if under 10 seconds
+        if (p1TimeRemaining < 10 && p1TimeRemaining > 0) {
+            float alpha = 0.5f + (float)Math.abs(Math.sin(Gdx.graphics.getFrameId() * 0.2f)) * 0.5f;
+            timeLabel.setColor(1, 0, 0, alpha); 
         } else {
-            aiLabel.setText("" + aiScore);
+            timeLabel.setColor(Color.WHITE);
         }
 
-        if (comboMultiplier > 1) {
-            comboLabel.setText("x" + comboMultiplier);
+        int p1Combo = 1;
+        int p2Combo = 1;
+
+        int m2 = (int) (p2TimeRemaining / 60);
+        int s2 = (int) (p2TimeRemaining % 60);
+        p2TimeLabel.setText(String.format("%d:%02d", m2, s2));
+        p2TimeLabel.setVisible(isTwoPlayer); 
+
+        // Pulse P2 Timer Red if under 10 seconds
+        if (p2TimeRemaining < 10 && p2TimeRemaining > 0 && isTwoPlayer) {
+            float alpha = 0.5f + (float)Math.abs(Math.sin(Gdx.graphics.getFrameId() * 0.2f)) * 0.5f;
+            p2TimeLabel.setColor(1, 0, 0, alpha);
         } else {
-            comboLabel.setText("");
+            p2TimeLabel.setColor(Color.WHITE);
         }
 
-    if (gameState == GameState.PLAYING) {
+        // --- 2. DYNAMIC P2/AI LABELS ---
+    if (isTwoPlayer) {
+        playerLabel.setText("" + score);
+        aiLabel.setText("" + aiScore);
+        aiLabel.setColor(Color.RED); // Ensure P2 stays Red
+    } else {
+        playerLabel.setText("" + score);
+        aiLabel.setText("" + aiScore);
+        aiLabel.setColor(Color.RED);
+    }
+    
+    goalLabel.setText("" + scoreGoal);
+    difficultyLabel.setText("" + currentDifficulty);
+
+    // --- 3. THE COMBO COUNTER LOGIC (P1 + P2 SEPARATE) ---
+
+    // ✅ Visibility based on mode
+    comboLabel.setVisible(true);                  // P1 always visible
+    p2ComboLabel.setVisible(isTwoPlayer);         // Only show in 2P mode
+
+    // Update combo display
+    comboLabel.setText("x" + p1Combo);
+
+    if (isTwoPlayer) {
+        p2ComboLabel.setText("x" + p2Combo);
+    }
+
+    // Scale + color for P1 combo
+    float baseScale = 2.9f;
+    comboLabel.setFontScale(baseScale + (p1Combo * 0.15f));
+
+    if (p1Combo >= 5) comboLabel.setColor(Color.RED);
+    else if (p1Combo >= 3) comboLabel.setColor(Color.ORANGE);
+    else if (p1Combo > 1) comboLabel.setColor(Color.GOLD);
+    else comboLabel.setColor(Color.WHITE);
+
+    // Scale + color for P2 combo (ONLY if 2P)
+    if (isTwoPlayer) {
+        p2ComboLabel.setFontScale(baseScale + (p2Combo * 0.15f));
+
+        if (p2Combo >= 5) p2ComboLabel.setColor(Color.RED);
+        else if (p2Combo >= 3) p2ComboLabel.setColor(Color.ORANGE);
+        else if (p2Combo > 1) p2ComboLabel.setColor(Color.GOLD);
+        else p2ComboLabel.setColor(Color.WHITE);
+    }
+
+        // 4. --- MASTER TOGGLE & STATUS ---
+        if (exitTable != null) {
+            exitTable.setVisible(gameState == GameState.INTRO || 
+                                gameState == GameState.MODE_SELECT || 
+                                gameState == GameState.SETTINGS);
+        }
+
+        if (gameState == GameState.PLAYING) {
             messageTable.setVisible(false);
             if (isTwoPlayer) {
                 statusLabel.setText(currentPlayer == 1 ? "P1 Turn" : "P2 Turn");
             } else {
                 statusLabel.setText(currentPlayer == 1 ? "Your Turn" : "AI Thinking...");
             }
-        } else if (gameState != GameState.INTRO) {
+        } else if (gameState == GameState.PLAYER_WIN || gameState == GameState.AI_WIN || gameState == GameState.TIME_UP) {
             statusLabel.setText("GAME OVER");
             displayEndGameMessage();
-        }
-
-        int displayCombo = Math.max(1, comboMultiplier); // Always at least 1
-        comboLabel.setText("x" + displayCombo);
-        
-        // Visual Juice: Scale and Color
-        float baseScale = 2.9f;
-        comboLabel.setFontScale(baseScale + (displayCombo * 0.15f)); // Grows with combo
-
-        if (displayCombo >= 5) {
-            comboLabel.setColor(Color.RED); // High intensity
-        } else if (displayCombo >= 3) {
-            comboLabel.setColor(Color.ORANGE);
-        } else if (displayCombo > 1) {
-            comboLabel.setColor(Color.GOLD);
         } else {
-            comboLabel.setColor(Color.WHITE); // Default x1
+            messageTable.setVisible(false);
+            statusLabel.setText(""); 
         }
-
     }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
     @Override
         public void dispose() {
@@ -993,7 +1270,9 @@ public class FourStack extends ApplicationAdapter {
             hardImg.dispose();
             p1Img.dispose();
             p2Img.dispose();
-            
+            settingsBg.dispose(); // <--- ADD THIS
+            volumeImg.dispose();
+
             // Audio
             if (backgroundMusic != null) backgroundMusic.dispose();
             if (popSound != null) popSound.dispose();
@@ -1025,60 +1304,53 @@ public class FourStack extends ApplicationAdapter {
         comboMultiplier = 0; 
         int clearType;
         
-        // We now capture the clearType (1=H, 2=V, 3=D)
+        // The while loop handles cascades (chains)
         while ((clearType = checkAndRemoveLines()) != 0) {
             comboMultiplier++; 
             
-            // --- REFINED SOUND LOGIC ---
-            // Base Sound: Horizontal/Diagonal use blast1, Vertical use blast2
-            boolean useBlast1 = (clearType == 1 || clearType == 3);
-            
-            // ALTERNATE LOGIC: 
-            // If it's a combo (2, 4, 6...), we flip the sound so it doesn't stay the same
-            if (comboMultiplier % 2 == 0) {
-                useBlast1 = !useBlast1; // Switch to the other sound
-            }
+            // 1. AWARD TIME BONUS
+            float bonus = (scoreGoal < 3000) ? 8f : 5f; // More generous bonus on Easy
+            if (playerID == 1) p1TimeRemaining += bonus;
+            else p2TimeRemaining += bonus;
 
-            float pitch = 1.0f + (comboMultiplier * 0.1f);
-            if (useBlast1) {
-                blast1.play(0.8f, pitch, 0);
-            } else {
-                blast2.play(0.8f, pitch, 0);
-            }
-
-            // --- SCREEN SHAKE & SCORE ---
-            shakeTimer = 0.15f; 
-            shakeIntensity = 2f + (comboMultiplier * 3f); 
-
+            // 2. CALCULATE POINTS (Exponential growth for combos)
             int points = (100 * (int)Math.pow(2, comboMultiplier - 1));
             if (playerID == 1) score += points;
             else aiScore += points;
-            
+
+            // 3. AUDIO & VISUAL JUICE
+            float pitch = 0.8f + (comboMultiplier * 0.2f); // Pitch goes up with combo
+            if (clearType == 2) blast2.play(masterVolume, pitch, 0); // Vertical
+            else blast1.play(masterVolume, pitch, 0);               // Horiz/Diag
+
+            shakeTimer = 0.2f; 
+            shakeIntensity = 3f + (comboMultiplier * 4f); // Bigger combos = bigger shake
+
+            // 4. GRAVITY
             for(int c = 0; c < COLS; c++) bubbleSortColumn(c);
         }
 
-        // Check Win/Loss
+        // Check Win Conditions
         if (score >= scoreGoal) {
             gameState = GameState.PLAYER_WIN;
             winSound.play(masterVolume);
         } else if (aiScore >= scoreGoal) {
             gameState = GameState.AI_WIN;
-            loseSound.play();
+            if (isTwoPlayer) winSound.play(masterVolume); // P2 wins
+            else loseSound.play(masterVolume);            // AI wins
         } else if (grid[0][col] != 0) {
+            // Board overflow logic
             gameState = (playerID == 1) ? GameState.AI_WIN : GameState.PLAYER_WIN;
-            if (gameState == GameState.AI_WIN) loseSound.play();
-            else winSound.play();
-        // Inside finalizeTurn(), find the "Switch turns" section:
         } else {
+            // SWITCH TURNS
             currentPlayer = (playerID == 1) ? 2 : 1;
             
-            // Only trigger AI if we are NOT in two-player mode
             if (!isTwoPlayer && currentPlayer == 2) {
                 aiNeedsToMove = true;
                 aiTimer = 0f;
             }
         }
-    }
+}
 
     void executeMove(int col) {
         if (gameState != GameState.PLAYING || currentPlayer == 0) return;
