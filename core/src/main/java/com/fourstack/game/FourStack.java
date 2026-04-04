@@ -147,6 +147,16 @@ public class FourStack extends ApplicationAdapter {
     BitmapFont font;
     Texture pauseBtnImg;
     Texture pausedBg;
+    Texture p1TurnTex, p2TurnTex, aiTurnTex;
+    Texture winTex, lossTex, p1WinTex, p2WinTex, p1LostTex, p2LostTex;
+    Texture timeTex;
+    Image statusImage;
+    float statusScale = 1.0f;
+    Texture p1TurnClTex, p2TurnClTex, aiTurnClTex;
+    Texture winClTex, lossClTex, timesUpClTex;
+    Image clImage;
+
+    float clScale = 1.0f; // Scale for the companion image
 
     Texture resumeImg;
     Texture restartImg;
@@ -265,6 +275,25 @@ public class FourStack extends ApplicationAdapter {
         loseSound = Gdx.audio.newSound(Gdx.files.internal("Lose_sound.wav"));
         blast1 = Gdx.audio.newSound(Gdx.files.internal("blast1.mp3"));
         blast2 = Gdx.audio.newSound(Gdx.files.internal("blast2.mp3"));
+
+        p1TurnTex = new Texture("p1turn.png");
+        p2TurnTex = new Texture("p2turn.png");
+        aiTurnTex = new Texture("aiturn.png");
+        winTex = new Texture("win.png");
+        lossTex = new Texture("loss.png");
+        p1WinTex = new Texture("p1win.png");
+        p2WinTex = new Texture("p2win.png");
+        p1LostTex = new Texture("p1lost.png");
+        p2LostTex = new Texture("p2lost.png");
+        timeTex = new Texture("time.png");
+
+
+        p1TurnClTex = new Texture("p1turn_cl.png");
+        p2TurnClTex = new Texture("p2turn_cl.png");
+        aiTurnClTex = new Texture("aiturn_cl.png");
+        winClTex = new Texture("win_cl.png");
+        lossClTex = new Texture("loss_cl.png");
+        timesUpClTex = new Texture("timesup_cl.png");
 
         // UI SETUP
         // Change ScreenViewport to FitViewport
@@ -791,14 +820,40 @@ public class FourStack extends ApplicationAdapter {
         gameHudGroup.addActor(p2ComboLabel); // <--- ADDED
         gameHudGroup.setVisible(false); // <--- Hides the scores initially!
 
-        // 6. MESSAGE OVERLAY
-        messageLabel = new Label("", skin, "subtitle");
-        messageLabel.setAlignment(Align.center);
-        messageTable = new Table();
-        messageTable.setFillParent(true);
-        messageTable.add(messageLabel).padBottom(30).row();
-        messageTable.setVisible(false);
-        stage.addActor(messageTable);
+        statusImage = new Image(p1TurnTex); // Default to P1 turn
+
+        // ==========================================
+        // 🎛️ STATUS IMAGE CONFIGURATION 🎛️
+        // Change these values to move and resize the image
+        // ==========================================
+        statusScale = 0.5f;           // <--- Change this to resize (e.g., 0.5f for half size)
+        float statusX = 1000f;         // <--- Change this to move left/right
+        float statusY = 400f;         // <--- Change this to move up/down
+        // ==========================================
+
+        statusImage.setPosition(statusX, statusY);
+        statusImage.setSize(p1TurnTex.getWidth() * statusScale, p1TurnTex.getHeight() * statusScale);
+
+        // Add it to your HUD!
+        gameHudGroup.addActor(statusImage);
+
+        // (Optional) If you still have the old statusLabel showing text, hide it:
+        statusLabel.setVisible(false);
+
+        // ==========================================
+        // 🎛️ COMPANION (_cl) IMAGE CONFIGURATION 🎛️
+        // ==========================================
+        clImage = new Image(p1TurnClTex); // Default to P1 turn CL
+
+        clScale = 1.0f;               // <--- Change this to resize the _cl image
+        float clX = 600f;             // <--- Move this so it doesn't overlap statusImage!
+        float clY = 500f;             // <--- Move this so it doesn't overlap statusImage!
+        
+        clImage.setPosition(clX, clY);
+        clImage.setSize(p1TurnClTex.getWidth() * clScale, p1TurnClTex.getHeight() * clScale);
+        
+        // Add it to the HUD right next to the statusImage
+        gameHudGroup.addActor(clImage);
 
         // 7. Pause
         pauseTriggerBtn = new Image(new Texture(Gdx.files.internal("pausebutton.png")));
@@ -826,6 +881,62 @@ public class FourStack extends ApplicationAdapter {
                     }
                 });
         gameHudGroup.addActor(pauseTriggerBtn);
+    }
+
+    private void updateStatusImage() {
+        if (statusImage == null || clImage == null || !gameHudGroup.isVisible()) return;
+        
+        Texture targetTex = null;
+        Texture targetClTex = null; // <--- Tracks the companion image
+
+        // 1. GAME IS ACTIVE
+        if (gameState == GameState.PLAYING) {
+            if (currentPlayer == 1) {
+                targetTex = p1TurnTex;
+                targetClTex = p1TurnClTex;
+            } else if (currentPlayer == 2) {
+                targetTex = isTwoPlayer ? p2TurnTex : aiTurnTex;
+                targetClTex = isTwoPlayer ? p2TurnClTex : aiTurnClTex;
+            }
+        } 
+        // 2. PLAYER 1 WINS
+        else if (gameState == GameState.PLAYER_WIN) {
+            targetTex = isTwoPlayer ? p1WinTex : winTex; 
+            targetClTex = winClTex; // Win CL for both 1P and 2P
+        } 
+        // 3. AI OR PLAYER 2 WINS
+        else if (gameState == GameState.AI_WIN) {
+            targetTex = isTwoPlayer ? p2WinTex : lossTex;
+            // If 2P mode, someone won so show win_cl. If 1P mode, player lost so show loss_cl
+            targetClTex = isTwoPlayer ? winClTex : lossClTex; 
+        } 
+        // 4. TIME RUNS OUT
+        else if (gameState == GameState.TIME_UP) {
+            targetTex = timeTex;
+            targetClTex = timesUpClTex; 
+        }
+
+        // Apply the MAIN texture only if it has changed
+        if (targetTex != null) {
+            com.badlogic.gdx.scenes.scene2d.utils.TextureRegionDrawable currentDrawable = 
+                (com.badlogic.gdx.scenes.scene2d.utils.TextureRegionDrawable) statusImage.getDrawable();
+                
+            if (currentDrawable == null || currentDrawable.getRegion().getTexture() != targetTex) {
+                statusImage.setDrawable(new com.badlogic.gdx.scenes.scene2d.utils.TextureRegionDrawable(targetTex));
+                statusImage.setSize(targetTex.getWidth() * statusScale, targetTex.getHeight() * statusScale);
+            }
+        }
+
+        // Apply the COMPANION (_cl) texture only if it has changed
+        if (targetClTex != null) {
+            com.badlogic.gdx.scenes.scene2d.utils.TextureRegionDrawable currentClDrawable = 
+                (com.badlogic.gdx.scenes.scene2d.utils.TextureRegionDrawable) clImage.getDrawable();
+                
+            if (currentClDrawable == null || currentClDrawable.getRegion().getTexture() != targetClTex) {
+                clImage.setDrawable(new com.badlogic.gdx.scenes.scene2d.utils.TextureRegionDrawable(targetClTex));
+                clImage.setSize(targetClTex.getWidth() * clScale, targetClTex.getHeight() * clScale);
+            }
+        }
     }
 
     private void startGame() {
@@ -863,7 +974,7 @@ public class FourStack extends ApplicationAdapter {
     @Override
     public void render() {
         float deltaTime = Gdx.graphics.getDeltaTime();
-
+        updateStatusImage();
         // 2. COORDINATE MATH (Shifted to the left half)
         float scale = 2.5f;
         float frameWidth = frame.getWidth() * scale;
@@ -1120,14 +1231,8 @@ public class FourStack extends ApplicationAdapter {
         messageTable.setVisible(true);
         messageLabel.setVisible(true);
         if (gameState == GameState.PLAYER_WIN) {
-            messageLabel.setText("YOU WIN!");
-            messageLabel.setColor(Color.YELLOW);
         } else if (gameState == GameState.AI_WIN) {
-            messageLabel.setText("AI WINS!");
-            messageLabel.setColor(Color.RED);
         } else if (gameState == GameState.TIME_UP) {
-            messageLabel.setText("TIME'S UP!");
-            messageLabel.setColor(Color.RED);
         }
     }
 
