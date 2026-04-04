@@ -9,6 +9,7 @@ import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.g2d.BitmapFont;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.scenes.scene2d.Stage;
+import com.badlogic.gdx.scenes.scene2d.actions.Actions;
 import com.badlogic.gdx.scenes.scene2d.InputEvent;
 import com.badlogic.gdx.scenes.scene2d.ui.Image;
 import com.badlogic.gdx.scenes.scene2d.ui.Label;
@@ -22,6 +23,8 @@ import com.badlogic.gdx.utils.viewport.ScreenViewport;
 import com.badlogic.gdx.utils.viewport.FitViewport;
 import com.badlogic.gdx.utils.viewport.Viewport;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
+import com.badlogic.gdx.math.Interpolation;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
@@ -158,6 +161,11 @@ public class FourStack extends ApplicationAdapter {
 
     float clScale = 1.0f; // Scale for the companion image
 
+    Texture[] expTextures;
+    Image expImage;
+    float expTimer = 0f;
+    boolean showExp = false;
+
     Texture resumeImg;
     Texture restartImg;
     Texture settingsPauseImg; // reuse if same as settings.png
@@ -175,7 +183,6 @@ public class FourStack extends ApplicationAdapter {
     Table introTable;
     Table gameTable;
     Table exitTable;
-    Table messageTable;
     Table modeTable;
     Table pauseTable;
     Image pauseButton;
@@ -186,7 +193,6 @@ public class FourStack extends ApplicationAdapter {
     Label goalLabel;
     Label statusLabel;
     Label comboLabel;
-    Label messageLabel;
     Label instructionsLabel;
     Label p2TimeLabel;
     Label p2ComboLabel;
@@ -214,7 +220,7 @@ public class FourStack extends ApplicationAdapter {
     int p2Combo = 1;
     // AI
     Random random = new Random();
-    float aiMoveDelay = 0.5f; // AI waits 0.5s before moving
+    float aiMoveDelay = 0.65f; // AI waits 0.5s before moving
     float aiTimer = 0f;
     boolean aiNeedsToMove = false;
     private Image pauseTriggerBtn;
@@ -286,7 +292,10 @@ public class FourStack extends ApplicationAdapter {
         p1LostTex = new Texture("p1lost.png");
         p2LostTex = new Texture("p2lost.png");
         timeTex = new Texture("time.png");
-
+        expTextures = new Texture[5];
+        for (int i = 0; i < 5; i++) {
+            expTextures[i] = new Texture("exp" + (i + 1) + ".png");
+        }
 
         p1TurnClTex = new Texture("p1turn_cl.png");
         p2TurnClTex = new Texture("p2turn_cl.png");
@@ -827,8 +836,8 @@ public class FourStack extends ApplicationAdapter {
         // Change these values to move and resize the image
         // ==========================================
         statusScale = 0.5f;           // <--- Change this to resize (e.g., 0.5f for half size)
-        float statusX = 1000f;         // <--- Change this to move left/right
-        float statusY = 400f;         // <--- Change this to move up/down
+        float statusX = 1050f;         // <--- Change this to move left/right
+        float statusY = 380f;         // <--- Change this to move up/down
         // ==========================================
 
         statusImage.setPosition(statusX, statusY);
@@ -845,15 +854,27 @@ public class FourStack extends ApplicationAdapter {
         // ==========================================
         clImage = new Image(p1TurnClTex); // Default to P1 turn CL
 
-        clScale = 1.0f;               // <--- Change this to resize the _cl image
-        float clX = 600f;             // <--- Move this so it doesn't overlap statusImage!
-        float clY = 500f;             // <--- Move this so it doesn't overlap statusImage!
+        clScale = 0.35f;               // <--- Change this to resize the _cl image
+        float clX = 930f;             // <--- Move this so it doesn't overlap statusImage!
+        float clY = 71f;             // <--- Move this so it doesn't overlap statusImage!
         
         clImage.setPosition(clX, clY);
         clImage.setSize(p1TurnClTex.getWidth() * clScale, p1TurnClTex.getHeight() * clScale);
         
         // Add it to the HUD right next to the statusImage
         gameHudGroup.addActor(clImage);
+
+        expImage = new Image(expTextures[0]);
+
+        // Match STATUS position + scale
+        expImage.setPosition(statusImage.getX(), statusImage.getY());
+        expImage.setSize(
+            expTextures[0].getWidth() * statusScale,
+            expTextures[0].getHeight() * statusScale
+        );
+
+        expImage.setVisible(false);
+        gameHudGroup.addActor(expImage);
 
         // 7. Pause
         pauseTriggerBtn = new Image(new Texture(Gdx.files.internal("pausebutton.png")));
@@ -962,7 +983,6 @@ public class FourStack extends ApplicationAdapter {
         modeTable.setVisible(false); 
         gameTable.setVisible(true);
         gameHudGroup.setVisible(true); // <--- Show HUD now!
-        messageTable.setVisible(false);
     }
 
     @Override
@@ -974,6 +994,15 @@ public class FourStack extends ApplicationAdapter {
     @Override
     public void render() {
         float deltaTime = Gdx.graphics.getDeltaTime();
+        
+        if (gameState == GameState.PLAYING && showExp) {
+            expTimer -= deltaTime;
+            if (expTimer <= 0f) {
+                expImage.setVisible(false);
+                showExp = false;
+            }
+        }
+
         updateStatusImage();
         // 2. COORDINATE MATH (Shifted to the left half)
         float scale = 2.5f;
@@ -1007,20 +1036,17 @@ public class FourStack extends ApplicationAdapter {
                 p1TimeRemaining -= deltaTime;
                 if (p1TimeRemaining <= 0) {
                     p1TimeRemaining = 0;
-                    gameState = GameState.AI_WIN; // P1 ran out of time, so P2/AI wins
-                    loseSound.play();
-                } else if (gameState == GameState.PAUSED) {
-                // 🚫 DO NOTHING → this freezes the game
-            }
+                    gameState = GameState.TIME_UP; // Fix: Use your actual TIME_UP state
+                    loseSound.play(masterVolume);  // Fix: Added masterVolume
+                }
             } else if (currentPlayer == 2 && isTwoPlayer) {
                 // Only tick down if it's 2P mode or if you want the AI to have a limit
                 p2TimeRemaining -= deltaTime; 
                 if (p2TimeRemaining <= 0) {
                     p2TimeRemaining = 0;
-                    gameState = GameState.PLAYER_WIN; // P2 ran out of time, P1 wins
-                    winSound.play();
+                    gameState = GameState.TIME_UP; // Fix: Use your actual TIME_UP state
+                    winSound.play(masterVolume);   // Fix: Added masterVolume
                 }
-                
             }
 
             // PLAYER CLICK DETECTION
@@ -1226,10 +1252,6 @@ public class FourStack extends ApplicationAdapter {
 
 
     void displayEndGameMessage() {
-        if (messageTable.isVisible()) return; // Already showing, no need to update
-        
-        messageTable.setVisible(true);
-        messageLabel.setVisible(true);
         if (gameState == GameState.PLAYER_WIN) {
         } else if (gameState == GameState.AI_WIN) {
         } else if (gameState == GameState.TIME_UP) {
@@ -1456,7 +1478,6 @@ public class FourStack extends ApplicationAdapter {
         }
 
         if (gameState == GameState.PLAYING) {
-            messageTable.setVisible(false);
             if (isTwoPlayer) {
                 statusLabel.setText(currentPlayer == 1 ? "P1 Turn" : "P2 Turn");
             } else {
@@ -1466,7 +1487,6 @@ public class FourStack extends ApplicationAdapter {
             statusLabel.setText("GAME OVER");
             displayEndGameMessage();
         } else {
-            messageTable.setVisible(false);
             statusLabel.setText(""); 
         }
     }
@@ -1544,6 +1564,7 @@ public class FourStack extends ApplicationAdapter {
         
         // The while loop handles cascades (chains)
         while ((clearType = checkAndRemoveLines()) != 0) {
+            triggerExplosion();
             comboMultiplier++; 
             
             // 1. AWARD TIME BONUS
@@ -1579,6 +1600,15 @@ public class FourStack extends ApplicationAdapter {
         } else if (grid[0][col] != 0) {
             // Board overflow logic
             gameState = (playerID == 1) ? GameState.AI_WIN : GameState.PLAYER_WIN;
+            
+            // 👇 ADD THIS BLOCK: Play the correct sound when the board overflows
+            if (gameState == GameState.PLAYER_WIN) {
+                winSound.play(masterVolume);
+            } else {
+                if (isTwoPlayer) winSound.play(masterVolume); // P2 wins
+                else loseSound.play(masterVolume);            // AI wins
+            }
+
         } else {
             // SWITCH TURNS
             currentPlayer = (playerID == 1) ? 2 : 1;
@@ -1589,6 +1619,51 @@ public class FourStack extends ApplicationAdapter {
             }
         }
 }
+
+    void triggerExplosion() {
+        int rand = new Random().nextInt(5);
+
+        expImage.setDrawable(
+            new com.badlogic.gdx.scenes.scene2d.utils.TextureRegionDrawable(expTextures[rand])
+        );
+
+        // Match status position + scale again (in case resized)
+        float expX = 900f; // customize
+        float expY = 380f;
+
+        expImage.setPosition(expX, expY);
+        expImage.setSize(
+            expTextures[rand].getWidth() * statusScale,
+            expTextures[rand].getHeight() * statusScale
+        );
+
+        expImage.clearActions();
+        expImage.getColor().a = 1f;
+        expImage.setScale(0f); // start small
+        expImage.setVisible(true);
+        
+        expTimer = 1f; // show for 1 second
+        showExp = true;
+
+        // 🔥 COOL ANIMATION (pop + bounce)
+        
+        
+        expImage.addAction(
+            com.badlogic.gdx.scenes.scene2d.actions.Actions.sequence(
+                // FAST POP IN
+                Actions.scaleTo(1.4f, 1.4f, 0.08f, Interpolation.swingOut),
+
+                // QUICK SETTLE
+                Actions.scaleTo(1f, 1f, 0.08f, Interpolation.sine),
+
+                // HOLD (rest of the 1 second)
+                Actions.delay(0.6f),
+
+                // FAST FADE OUT
+                Actions.fadeOut(0.24f)
+            )
+        );
+    }
 
     void executeMove(int col) {
         if (gameState != GameState.PLAYING || currentPlayer == 0) return;
