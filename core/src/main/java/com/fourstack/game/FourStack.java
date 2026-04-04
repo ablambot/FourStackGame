@@ -186,8 +186,15 @@ public class FourStack extends ApplicationAdapter {
     Image medBtn;
     Image hardBtn;
 
+    private Table tutorialTable;
+    private int tutorialStep = 0;
+    private Texture[] tutCharacters;
+    private Texture[] tutTextBoxes;
+    private Image currentCharacterImg;
+    private Image currentTextBoxImg;
+    
     // Game state
-    enum GameState { INTRO, MODE_SELECT, PLAYING, PAUSED, PLAYER_WIN, SETTINGS, AI_WIN, TIME_UP }
+    enum GameState { INTRO, MODE_SELECT, SETTINGS, TUTORIAL, PLAYING, PLAYER_WIN, AI_WIN, TIME_UP, PAUSED }
     GameState gameState = GameState.INTRO;
 
     // Timer (2 minutes = 120 seconds)
@@ -266,11 +273,12 @@ public class FourStack extends ApplicationAdapter {
         Gdx.input.setInputProcessor(stage);
         skin = new Skin(Gdx.files.internal("ui/uiskin.json"));
 
-        createIntroUI();
-        createGameUI();
-        createModeUI(); // New method
-        createSettingsUI();
+        createSettingsUI(); 
         createPauseUI();
+        createTutorialUI(); // <--- ADD THIS HERE
+        createGameUI();     
+        createModeUI();
+        createIntroUI();
 
         // Start with Intro
         introTable.setVisible(true);
@@ -321,6 +329,18 @@ public class FourStack extends ApplicationAdapter {
             @Override
             public void clicked(InputEvent event, float x, float y) {
                 Gdx.app.exit();
+            }
+        });
+
+        tutorialBtn.addListener(new ClickListener() {
+            @Override
+            public void clicked(InputEvent event, float x, float y) {
+                gameState = GameState.TUTORIAL;
+                introTable.setVisible(false);
+                if (exitTable != null) {
+                    exitTable.setVisible(false); // Hide the main exit button
+                }
+                tutorialTable.setVisible(true);
             }
         });
 
@@ -448,29 +468,29 @@ public class FourStack extends ApplicationAdapter {
             }
         });
 
-        // Back Button Logic
-    backBtnSettings.addListener(new ClickListener() {
-            @Override
-            public void clicked(InputEvent event, float x, float y) {
-                
-                if (comingFromPause) {
-                    // GO BACK TO PAUSE MENU
-                    gameState = GameState.PAUSED;
-                    settingsTable.setVisible(false);
-                    pauseTable.setVisible(true);
-                    comingFromPause = false; // Reset the flag so it doesn't get stuck!
-                } else {
-                    // GO BACK TO MAIN MENU
-                    gameState = GameState.INTRO;
-                    settingsTable.setVisible(false);
-                    introTable.setVisible(true);
-                    if (exitTable != null) {
-                        exitTable.setVisible(true);
+            // Back Button Logic
+        backBtnSettings.addListener(new ClickListener() {
+                @Override
+                public void clicked(InputEvent event, float x, float y) {
+                    
+                    if (comingFromPause) {
+                        // GO BACK TO PAUSE MENU
+                        gameState = GameState.PAUSED;
+                        settingsTable.setVisible(false);
+                        pauseTable.setVisible(true);
+                        comingFromPause = false; // Reset the flag so it doesn't get stuck!
+                    } else {
+                        // GO BACK TO MAIN MENU
+                        gameState = GameState.INTRO;
+                        settingsTable.setVisible(false);
+                        introTable.setVisible(true);
+                        if (exitTable != null) {
+                            exitTable.setVisible(true);
+                        }
                     }
+                    
                 }
-                
-            }
-        });
+            });
 
         // --- LAYOUT ---
         // Put the volume image and the slider on the same row
@@ -596,14 +616,120 @@ public class FourStack extends ApplicationAdapter {
             // Adding the exit button to the separate corner table
             pauseExitTable.add(exitBtnPause).width(226).height(57);
         }
-        private void updateDifficultyGlowPause(Image selected) {
-            easyBtnPause.setColor(Color.WHITE);
-            medBtnPause.setColor(Color.WHITE);
-            hardBtnPause.setColor(Color.WHITE);
-            selected.setColor(Color.YELLOW); // Highlighting the selected difficulty
+
+    private void updateDifficultyGlowPause(Image selected) {
+        easyBtnPause.setColor(Color.WHITE);
+        medBtnPause.setColor(Color.WHITE);
+        hardBtnPause.setColor(Color.WHITE);
+        selected.setColor(Color.YELLOW); // Highlighting the selected difficulty
+    }
+
+    private void createTutorialUI() {
+        tutorialTable = new Table();
+        tutorialTable.setFillParent(true);
+        
+        // 1. BACKGROUND (Also acts as our click-catcher)
+        Texture tutorialBgTex = new Texture(Gdx.files.internal("tutorialbg.png"));
+        Image bgImg = new Image(tutorialBgTex);
+        bgImg.setSize(VIRTUAL_WIDTH, VIRTUAL_HEIGHT);
+        bgImg.setPosition(0, 0);
+        tutorialTable.addActor(bgImg); // Added first so it stays at the very back
+
+        // 2. LOAD TEXTURES INTO ARRAYS
+        tutCharacters = new Texture[3];
+        for (int i = 0; i < 3; i++) {
+            tutCharacters[i] = new Texture(Gdx.files.internal("tut" + (i + 1) + ".png"));
+        }
+        
+        tutTextBoxes = new Texture[11];
+        for (int i = 0; i < 11; i++) {
+            tutTextBoxes[i] = new Texture(Gdx.files.internal((i + 1) + ".png"));
         }
 
+        // Initialize Images with the first step
+        currentTextBoxImg = new Image(tutTextBoxes[0]);
+        currentCharacterImg = new Image(tutCharacters[0]);
 
+        // ==========================================
+        // 🎛️ POSITION & SCALE CONFIGURATION 🎛️
+        // Change these values to move and resize the images
+        // ==========================================
+        
+        // TEXT BOX CONFIG (Background)
+        float textBoxScale = 0.5f;   // <--- CHANGE THIS: 0.6f means 60% of its original size. (0.5f = 50%, 0.8f = 80%, etc.)
+        float textBoxX = 130f;       // Position X
+        float textBoxY = 380f;       // Position Y
+        
+        // This automatically grabs the original image size and shrinks it by your scale!
+        float textBoxWidth = tutTextBoxes[0].getWidth() * textBoxScale;
+        float textBoxHeight = tutTextBoxes[0].getHeight() * textBoxScale;
+        
+        // CHARACTER CONFIG (Foreground)
+        float charX = 50f;
+        float charY = 0f;
+        float charWidth = 287f;      // <--- Updated proportional width
+        float charHeight = 400f;     // <--- Updated proportional height
+        
+        // ==========================================
+
+        currentTextBoxImg.setPosition(textBoxX, textBoxY);
+        currentTextBoxImg.setSize(textBoxWidth, textBoxHeight);
+        
+        currentCharacterImg.setPosition(charX, charY);
+        currentCharacterImg.setSize(charWidth, charHeight);
+
+        // ORDER MATTERS: Add TextBox first, then Character so the Character overlaps it
+        tutorialTable.addActor(currentTextBoxImg);
+        tutorialTable.addActor(currentCharacterImg);
+
+        // 3. BACK BUTTON
+        Image tBackBtn = new Image(new Texture(Gdx.files.internal("back.png")));
+        tBackBtn.setSize(226, 57);
+        tBackBtn.setPosition(1230, 10); // Bottom Right Corner
+        tutorialTable.addActor(tBackBtn);
+
+        // 4. LOGIC: CYCLE ON CLICK
+        bgImg.addListener(new ClickListener() {
+            @Override
+            public void clicked(InputEvent event, float x, float y) {
+                tutorialStep++;
+                
+                if (tutorialStep >= 11) {
+                    tutorialStep = 0; 
+                }
+                
+                // Update Text Box Image
+                currentTextBoxImg.setDrawable(new com.badlogic.gdx.scenes.scene2d.utils.TextureRegionDrawable(tutTextBoxes[tutorialStep]));
+                
+                // Re-calculate the size in case this specific text box image is a different size than the last one
+                currentTextBoxImg.setSize(tutTextBoxes[tutorialStep].getWidth() * textBoxScale, tutTextBoxes[tutorialStep].getHeight() * textBoxScale);
+                
+                // Update Character
+                currentCharacterImg.setDrawable(new com.badlogic.gdx.scenes.scene2d.utils.TextureRegionDrawable(tutCharacters[tutorialStep % 3]));
+            }
+        });
+
+        // 5. LOGIC: BACK BUTTON
+        tBackBtn.addListener(new ClickListener() {
+            @Override
+            public void clicked(InputEvent event, float x, float y) {
+                gameState = GameState.INTRO;
+                tutorialTable.setVisible(false);
+                introTable.setVisible(true);
+                if (exitTable != null) {
+                    exitTable.setVisible(true); 
+                }
+                
+                // Reset tutorial back to the start when they leave
+                tutorialStep = 0;
+                currentTextBoxImg.setDrawable(new com.badlogic.gdx.scenes.scene2d.utils.TextureRegionDrawable(tutTextBoxes[0]));
+                currentCharacterImg.setDrawable(new com.badlogic.gdx.scenes.scene2d.utils.TextureRegionDrawable(tutCharacters[0]));
+            }
+        });
+
+        stage.addActor(tutorialTable);
+        tutorialTable.setVisible(false); 
+    }
         
     private void createGameUI() {
         gameTable = new Table();
@@ -1280,6 +1406,13 @@ public class FourStack extends ApplicationAdapter {
             if (loseSound != null) loseSound.dispose();
             if (blast1 != null) blast1.dispose();
             if (blast2 != null) blast2.dispose();
+            // Dispose Tutorial Textures
+            if (tutCharacters != null) {
+                for (Texture t : tutCharacters) t.dispose();
+            }
+            if (tutTextBoxes != null) {
+                for (Texture t : tutTextBoxes) t.dispose();
+            }
         }
 
     // --- ADD THIS AT THE BOTTOM OF YOUR CLASS ---
