@@ -278,7 +278,7 @@ public void create() {
     p2Img = new Texture("2p.png");
     shapeRenderer = new ShapeRenderer();
 
-    FreeTypeFontGenerator generator = new FreeTypeFontGenerator(Gdx.files.internal("myfont.ttf"));
+    FreeTypeFontGenerator generator = new FreeTypeFontGenerator(Gdx.files.internal("myfont.TTF"));
     FreeTypeFontParameter parameter = new FreeTypeFontParameter();
 
     parameter.size = 32; 
@@ -298,7 +298,7 @@ public void create() {
     restartImg = new Texture("restart.png");
     settingsPauseImg = new Texture("settings.png");
 
-    backgroundMusic = Gdx.audio.newMusic(Gdx.files.internal("background_audio.MP3"));
+    backgroundMusic = Gdx.audio.newMusic(Gdx.files.internal("background_audio.mp3"));
     backgroundMusic.setLooping(true);
     backgroundMusic.setVolume(0.5f);
     backgroundMusic.play();
