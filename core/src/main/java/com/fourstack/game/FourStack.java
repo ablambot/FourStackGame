@@ -24,6 +24,8 @@ import com.badlogic.gdx.utils.viewport.FitViewport;
 import com.badlogic.gdx.utils.viewport.Viewport;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.badlogic.gdx.math.Interpolation;
+import com.badlogic.gdx.graphics.g2d.freetype.FreeTypeFontGenerator;
+import com.badlogic.gdx.graphics.g2d.freetype.FreeTypeFontGenerator.FreeTypeFontParameter;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -259,9 +261,24 @@ public class FourStack extends ApplicationAdapter {
         p1Img = new Texture("1p.png");
         p2Img = new Texture("2p.png");
         shapeRenderer = new ShapeRenderer();
-        font = new BitmapFont();
-        font.setColor(Color.WHITE);
-        font.getData().setScale(2f);
+
+        // 1. Load your .ttf file (put it in the assets folder)
+        FreeTypeFontGenerator generator = new FreeTypeFontGenerator(Gdx.files.internal("myfont.ttf"));
+        FreeTypeFontParameter parameter = new FreeTypeFontParameter();
+
+        // 2. Set the size and style
+        parameter.size = 32; 
+        parameter.color = Color.WHITE;
+        parameter.borderWidth = 2; // Optional: adds an outline
+        parameter.borderColor = Color.valueOf("3b2d59");
+
+        // 3. Create the actual font
+        font = generator.generateFont(parameter); 
+
+        // 4. Important: Dispose the generator to save memory
+        generator.dispose();
+        //font.setColor(Color.WHITE);
+        //font.getData().setScale(2f);
 
         pauseBtnImg = new Texture("pausebutton.png");
         pausedBg = new Texture("paused_clear.png");
@@ -311,6 +328,7 @@ public class FourStack extends ApplicationAdapter {
         Gdx.input.setInputProcessor(stage);
         skin = new Skin(Gdx.files.internal("ui/uiskin.json"));
 
+        
         createSettingsUI(); 
         createPauseUI();
         createTutorialUI(); // <--- ADD THIS HERE
@@ -537,123 +555,122 @@ public class FourStack extends ApplicationAdapter {
         settingsTable.add(backBtnSettings).colspan(2).width(226).height(57);
     }
 
-    // Declare this at the top of your class with your other Tables
-        private Table pauseExitTable;
+    private Table pauseExitTable;
 
-        private void createPauseUI() {
-            pauseTable = new Table();
-            pauseTable.setFillParent(true);
-            pauseTable.center().padTop(194);
-            stage.addActor(pauseTable);
-            pauseTable.setVisible(false);
-            pauseExitTable = new Table();
-            pauseExitTable.setFillParent(true);
-            // Matching your IntroUI Exit location exactly:
-            pauseExitTable.bottom().right().pad(20).padBottom(10); 
-            stage.addActor(pauseExitTable);
-            pauseExitTable.setVisible(false);
+    private void createPauseUI() {
+        pauseTable = new Table();
+        pauseTable.setFillParent(true);
+        pauseTable.center().padTop(194);
+        stage.addActor(pauseTable);
+        pauseTable.setVisible(false);
+        pauseExitTable = new Table();
+        pauseExitTable.setFillParent(true);
+        // Matching your IntroUI Exit location exactly:
+        pauseExitTable.bottom().right().pad(20).padBottom(10); 
+        stage.addActor(pauseExitTable);
+        pauseExitTable.setVisible(false);
 
-            // Buttons
-            Image resumeBtn = new Image(resumeImg);
-            Image restartBtn = new Image(restartImg);
-            Image settingsBtn = new Image(settingsPauseImg);
-            easyBtnPause = new Image(easyImg);
-            medBtnPause = new Image(mediumImg);
-            hardBtnPause = new Image(hardImg);
-            Image exitBtnPause = new Image(exitImg); // Your Exit image
+        // Buttons
+        Image resumeBtn = new Image(resumeImg);
+        Image restartBtn = new Image(restartImg);
+        Image settingsBtn = new Image(settingsPauseImg);
+        easyBtnPause = new Image(easyImg);
+        medBtnPause = new Image(mediumImg);
+        hardBtnPause = new Image(hardImg);
+        Image exitBtnPause = new Image(exitImg); // Your Exit image
 
-            // --- BUTTON LOGIC ---
+        // --- BUTTON LOGIC ---
 
-            resumeBtn.addListener(new ClickListener() {
-                @Override
-                public void clicked(InputEvent event, float x, float y) {
-                    gameState = stateBeforePause; // <--- Return to PLAYING or GAME OVER
-                    pauseTable.setVisible(false);
-                    pauseExitTable.setVisible(false); 
-                    gameHudGroup.setVisible(true);
-                }
-            });
+        resumeBtn.addListener(new ClickListener() {
+            @Override
+            public void clicked(InputEvent event, float x, float y) {
+                gameState = stateBeforePause; // <--- Return to PLAYING or GAME OVER
+                pauseTable.setVisible(false);
+                pauseExitTable.setVisible(false); 
+                gameHudGroup.setVisible(true);
+            }
+        });
 
-            restartBtn.addListener(new ClickListener() {
-                @Override
-                public void clicked(InputEvent event, float x, float y) {
-                    pauseTable.setVisible(false);
-                    pauseExitTable.setVisible(false); // Hide the corner exit button
-                    startGame();
-                }
-            });
+        restartBtn.addListener(new ClickListener() {
+            @Override
+            public void clicked(InputEvent event, float x, float y) {
+                pauseTable.setVisible(false);
+                pauseExitTable.setVisible(false); // Hide the corner exit button
+                startGame();
+            }
+        });
 
-            exitBtnPause.addListener(new ClickListener() {
-                @Override
-                public void clicked(InputEvent event, float x, float y) {
-                    gameState = GameState.INTRO;
-                    pauseTable.setVisible(false);
-                    pauseExitTable.setVisible(false); // Hide this one
-                    gameHudGroup.setVisible(false);
-                    introTable.setVisible(true);
-                    exitTable.setVisible(true);      // Show the Intro's exit button
-                }
-            });
+        exitBtnPause.addListener(new ClickListener() {
+            @Override
+            public void clicked(InputEvent event, float x, float y) {
+                gameState = GameState.INTRO;
+                pauseTable.setVisible(false);
+                pauseExitTable.setVisible(false); // Hide this one
+                gameHudGroup.setVisible(false);
+                introTable.setVisible(true);
+                exitTable.setVisible(true);      // Show the Intro's exit button
+            }
+        });
 
-            settingsBtn.addListener(new ClickListener() {
-                @Override
-                public void clicked(InputEvent event, float x, float y) {
-                    comingFromPause = true;
-                    gameState = GameState.SETTINGS;
-                    pauseTable.setVisible(false);
-                    settingsTable.setVisible(true);
-                }
-            });
-            
-            // --- DIFFICULTY LOGIC IN createPauseUI ---
-            easyBtnPause.addListener(new ClickListener() {
-                @Override
-                public void clicked(InputEvent event, float x, float y) {
-                    scoreGoal = 1000;
-                    currentDifficulty = Difficulty.EASY; // Update the Enum for the HUD label
-                    p1TimeRemaining = 120f;              // Reset/Update time for Easy
-                    p2TimeRemaining = 120f;
-                    updateDifficultyGlowPause(easyBtnPause);
-                }
-            });
+        settingsBtn.addListener(new ClickListener() {
+            @Override
+            public void clicked(InputEvent event, float x, float y) {
+                comingFromPause = true;
+                gameState = GameState.SETTINGS;
+                pauseTable.setVisible(false);
+                settingsTable.setVisible(true);
+            }
+        });
+        
+        // --- DIFFICULTY LOGIC IN createPauseUI ---
+        easyBtnPause.addListener(new ClickListener() {
+            @Override
+            public void clicked(InputEvent event, float x, float y) {
+                scoreGoal = 1000;
+                currentDifficulty = Difficulty.EASY; // Update the Enum for the HUD label
+                p1TimeRemaining = 120f;              // Reset/Update time for Easy
+                p2TimeRemaining = 120f;
+                updateDifficultyGlowPause(easyBtnPause);
+            }
+        });
 
-            medBtnPause.addListener(new ClickListener() {
-                @Override
-                public void clicked(InputEvent event, float x, float y) {
-                    scoreGoal = 3000;
-                    currentDifficulty = Difficulty.MEDIUM;
-                    p1TimeRemaining = 100f;
-                    p2TimeRemaining = 100f;
-                    updateDifficultyGlowPause(medBtnPause);
-                }
-            });
+        medBtnPause.addListener(new ClickListener() {
+            @Override
+            public void clicked(InputEvent event, float x, float y) {
+                scoreGoal = 3000;
+                currentDifficulty = Difficulty.MEDIUM;
+                p1TimeRemaining = 100f;
+                p2TimeRemaining = 100f;
+                updateDifficultyGlowPause(medBtnPause);
+            }
+        });
 
-            hardBtnPause.addListener(new ClickListener() {
-                @Override
-                public void clicked(InputEvent event, float x, float y) {
-                    scoreGoal = 5000;
-                    currentDifficulty = Difficulty.HARD;
-                    p1TimeRemaining = 80f;
-                    p2TimeRemaining = 80f;
-                    updateDifficultyGlowPause(hardBtnPause);
-                }
-            });
+        hardBtnPause.addListener(new ClickListener() {
+            @Override
+            public void clicked(InputEvent event, float x, float y) {
+                scoreGoal = 5000;
+                currentDifficulty = Difficulty.HARD;
+                p1TimeRemaining = 80f;
+                p2TimeRemaining = 80f;
+                updateDifficultyGlowPause(hardBtnPause);
+            }
+        });
 
-            // --- LAYOUT ---
-            pauseTable.setBackground(new Image(pausedBg).getDrawable());
-            
-            // Main Pause Menu Layout (No Exit Button here)
-            pauseTable.add(resumeBtn).width(226).height(57).colspan(3).padBottom(30).row();
-            pauseTable.add(easyBtnPause).width(226).height(57).padBottom(30);
-            pauseTable.add(medBtnPause).width(226).height(57).padBottom(30);
-            pauseTable.add(hardBtnPause).width(226).height(57).padBottom(30).row();
-            pauseTable.add(restartBtn).width(226).height(57).colspan(3).padBottom(30).row();
-            pauseTable.add(settingsBtn).width(226).height(57).colspan(3).padBottom(30);
+        // --- LAYOUT ---
+        pauseTable.setBackground(new Image(pausedBg).getDrawable());
+        
+        // Main Pause Menu Layout (No Exit Button here)
+        pauseTable.add(resumeBtn).width(226).height(57).colspan(3).padBottom(30).row();
+        pauseTable.add(easyBtnPause).width(226).height(57).padBottom(30);
+        pauseTable.add(medBtnPause).width(226).height(57).padBottom(30);
+        pauseTable.add(hardBtnPause).width(226).height(57).padBottom(30).row();
+        pauseTable.add(restartBtn).width(226).height(57).colspan(3).padBottom(30).row();
+        pauseTable.add(settingsBtn).width(226).height(57).colspan(3).padBottom(30);
 
-            // --- CORNER LAYOUT ---
-            // Adding the exit button to the separate corner table
-            pauseExitTable.add(exitBtnPause).width(226).height(57);
-        }
+        // --- CORNER LAYOUT ---
+        // Adding the exit button to the separate corner table
+        pauseExitTable.add(exitBtnPause).width(226).height(57);
+    }
 
     private void updateDifficultyGlowPause(Image selected) {
         easyBtnPause.setColor(Color.WHITE);
@@ -773,46 +790,47 @@ public class FourStack extends ApplicationAdapter {
         gameTable = new Table();
         gameTable.setFillParent(true);
         stage.addActor(gameTable);
+        
+        Label.LabelStyle customLabelStyle = new Label.LabelStyle();
+        customLabelStyle.font = font;
 
         // 1. INITIALIZE LABELS
-        timeLabel = new Label("", skin); // P1 Timer
-        p2TimeLabel = new Label("", skin); // P2 Timer
-        goalLabel = new Label("" , skin);
-        playerLabel = new Label("", skin);
-        aiLabel = new Label("", skin);
-        difficultyLabel = new Label("", skin);
-        statusLabel = new Label("", skin);
-        comboLabel = new Label("", skin);
-        p2ComboLabel = new Label("", skin); // P2 Combo <--- ADDED
+        timeLabel = new Label("", customLabelStyle); 
+        p2TimeLabel = new Label("", customLabelStyle); 
+        goalLabel = new Label("", customLabelStyle);
+        playerLabel = new Label("", customLabelStyle);
+        aiLabel = new Label("", customLabelStyle);
+        difficultyLabel = new Label("", customLabelStyle);
+        statusLabel = new Label("", customLabelStyle);
+        comboLabel = new Label("", customLabelStyle);
+        p2ComboLabel = new Label("", customLabelStyle);
+
 
         // 2. SCALE / ENLARGE
-        timeLabel.setFontScale(2.95f);
-        p2TimeLabel.setFontScale(2.95f);
-        goalLabel.setFontScale(3.4f);
-        difficultyLabel.setFontScale(3.7f);
-        playerLabel.setFontScale(2.95f);
-        aiLabel.setFontScale(2.95f);
-        statusLabel.setFontScale(1.5f);
-        comboLabel.setFontScale(2.9f);
-        p2ComboLabel.setFontScale(2.9f); // <--- ADDED
+        // setFontScale(widthScale, heightScale)
+        timeLabel.setFontScale(1.25f, 1.225f);
+        p2TimeLabel.setFontScale(1.25f, 1.225f);
+        goalLabel.setFontScale(1.45f, 1.45f);
+        difficultyLabel.setFontScale(1.57f, 1.85f);
+        playerLabel.setFontScale(1.25f, 1.225f);
+        aiLabel.setFontScale(1.25f, 1.225f);
+        comboLabel.setFontScale(1.23f, 1.2f);
+        p2ComboLabel.setFontScale(1.23f, 1.2f);
 
         // 3. SET COLORS
         playerLabel.setColor(Color.YELLOW);
         aiLabel.setColor(Color.RED);
-        comboLabel.setColor(Color.GOLD);
-        difficultyLabel.setColor(Color.CYAN);
-        
+        difficultyLabel.setColor(Color.valueOf(Color.WHITE));
 
         // 4. POSITIONING
-        timeLabel.setPosition(1075, 568);
-        p2TimeLabel.setPosition(1075, 518);
-        goalLabel.setPosition(877, 626);
-        difficultyLabel.setPosition(320, 28);
-        statusLabel.setPosition(VIRTUAL_WIDTH / 2f - 50, VIRTUAL_HEIGHT - 50);
-        playerLabel.setPosition(832, 568); 
-        aiLabel.setPosition(832, 518);     
-        comboLabel.setPosition(1282, 568);
-        p2ComboLabel.setPosition(1282, 518);
+        timeLabel.setPosition(1075, 570);
+        p2TimeLabel.setPosition(1075, 520);
+        goalLabel.setPosition(872, 626);
+        difficultyLabel.setPosition(315, 28);
+        playerLabel.setPosition(832, 570); 
+        aiLabel.setPosition(832, 520);     
+        comboLabel.setPosition(1282, 570);
+        p2ComboLabel.setPosition(1282, 520);
 
         // 5. ADD TO GROUP INSTEAD OF STAGE
         gameHudGroup = new com.badlogic.gdx.scenes.scene2d.Group();
@@ -1408,9 +1426,6 @@ public class FourStack extends ApplicationAdapter {
             timeLabel.setColor(Color.WHITE);
         }
 
-        int p1Combo = 1;
-        int p2Combo = 1;
-
         int m2 = (int) (p2TimeRemaining / 60);
         int s2 = (int) (p2TimeRemaining % 60);
         p2TimeLabel.setText(String.format("%d:%02d", m2, s2));
@@ -1451,9 +1466,15 @@ public class FourStack extends ApplicationAdapter {
         p2ComboLabel.setText("x" + p2Combo);
     }
 
-    // Scale + color for P1 combo
-    float baseScale = 2.9f;
-    comboLabel.setFontScale(baseScale + (p1Combo * 0.15f));
+  // --- UPDATE COMBO SCALES ---
+    float baseScaleX = 1.23f; // The narrower width
+    float baseScaleY = 1.2f; // The standard height
+    
+    // Calculate how much the text should grow based on the current combo
+    float p1Growth = p1Combo * 0.125f;
+    
+    // Use the TWO-PARAMETER scale method so it keeps its narrow proportions!
+    comboLabel.setFontScale(baseScaleX + p1Growth, baseScaleY + p1Growth);
 
     if (p1Combo >= 5) comboLabel.setColor(Color.RED);
     else if (p1Combo >= 3) comboLabel.setColor(Color.ORANGE);
@@ -1462,14 +1483,14 @@ public class FourStack extends ApplicationAdapter {
 
     // Scale + color for P2 combo (ONLY if 2P)
     if (isTwoPlayer) {
-        p2ComboLabel.setFontScale(baseScale + (p2Combo * 0.15f));
+        float p2Growth = p2Combo * 0.15f;
+        p2ComboLabel.setFontScale(baseScaleX + p2Growth, baseScaleY + p2Growth);
 
         if (p2Combo >= 5) p2ComboLabel.setColor(Color.RED);
         else if (p2Combo >= 3) p2ComboLabel.setColor(Color.ORANGE);
         else if (p2Combo > 1) p2ComboLabel.setColor(Color.GOLD);
         else p2ComboLabel.setColor(Color.WHITE);
     }
-
         // 4. --- MASTER TOGGLE & STATUS ---
         if (exitTable != null) {
             exitTable.setVisible(gameState == GameState.INTRO || 
@@ -1589,6 +1610,11 @@ public class FourStack extends ApplicationAdapter {
             for(int c = 0; c < COLS; c++) bubbleSortColumn(c);
         }
 
+            if (playerID == 1) {
+                p1Combo = Math.max(1, comboMultiplier);
+            } else {
+                p2Combo = Math.max(1, comboMultiplier);
+            }
         // Check Win Conditions
         if (score >= scoreGoal) {
             gameState = GameState.PLAYER_WIN;
