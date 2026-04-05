@@ -93,7 +93,16 @@ class BlastEffect {
 
 public class FourStack extends ApplicationAdapter {
         
-        // Add these constants
+    int tutorialStage = 0; 
+
+    int[] ghostMovesH = {0, 0, 1, 1, 2, 2, 3}; 
+    int[] ghostMovesV = {3, 4, 3, 4, 3, 4, 3}; 
+    int[] ghostMovesD = {0, 1, 1, 2, 3, 2, 2, 3, 3, 4, 3}; 
+    
+    int ghostMoveIndex = 0;
+    float ghostTimer = 0f;
+    float ghostMoveDelay = 1.0f; 
+
     public static final float VIRTUAL_WIDTH = 1440;
     public static final float VIRTUAL_HEIGHT = 762;
     private com.badlogic.gdx.utils.viewport.Viewport viewport;
@@ -103,8 +112,8 @@ public class FourStack extends ApplicationAdapter {
     List<SweepEffect> activeSweeps = new ArrayList<>();
     List<FallingPiece> activeFallingPieces = new ArrayList<>();
     List<BlastEffect> blastEffects = new ArrayList<>();
-    float masterVolume = 0.5f; 
-    Table settingsTable;       
+    float masterVolume = 1f; 
+    Table settingsTable;
 
     float innerX, innerY, innerW, innerH;
     float cellWidth, cellHeight;
@@ -152,6 +161,7 @@ public class FourStack extends ApplicationAdapter {
     Texture resumeImg;
     Texture restartImg;
     Texture settingsPauseImg;
+    Texture tutorialBg;
     Image clImage;
 
 
@@ -229,6 +239,7 @@ public void create() {
     menuBg = new Texture("menubg.png");
     modeBg = new Texture("modebg.png");
     settingsBg = new Texture("settingsbg.png");
+    tutorialBg = new Texture("tutorialbg.png");
     
     startImg = new Texture("start.png");
     tutorialImg = new Texture("tutorial.png");
@@ -264,7 +275,7 @@ public void create() {
     restartImg = new Texture("restart.png");
     settingsPauseImg = new Texture("settings.png");
 
-    backgroundMusic = Gdx.audio.newMusic(Gdx.files.internal("backround_audio.mp3"));
+    backgroundMusic = Gdx.audio.newMusic(Gdx.files.internal("background_audio.MP3"));
     backgroundMusic.setLooping(true);
     backgroundMusic.setVolume(0.5f);
     backgroundMusic.play();
@@ -361,12 +372,7 @@ private void createIntroUI() {
     tutorialBtn.addListener(new ClickListener() {
         @Override
         public void clicked(InputEvent event, float x, float y) {
-            gameState = GameState.TUTORIAL;
-            introTable.setVisible(false);
-            if (exitTable != null) {
-                exitTable.setVisible(false); // Hide the main exit button
-            }
-            tutorialTable.setVisible(true);
+            startTutorialGameplay();
         }
     });
 
@@ -634,11 +640,10 @@ private void createTutorialUI() {
     tutorialTable = new Table();
     tutorialTable.setFillParent(true);
 
-    Texture tutorialBgTex = new Texture(Gdx.files.internal("tutorialbg.png"));
-    Image bgImg = new Image(tutorialBgTex);
-    bgImg.setSize(VIRTUAL_WIDTH, VIRTUAL_HEIGHT);
-    bgImg.setPosition(0, 0);
-    tutorialTable.addActor(bgImg);
+    Image clickArea = new Image();
+    clickArea.setSize(VIRTUAL_WIDTH, VIRTUAL_HEIGHT);
+    clickArea.setPosition(0, 0);
+    tutorialTable.addActor(clickArea);
 
     tutCharacters = new Texture[3];
     for (int i = 0; i < 3; i++) {
@@ -654,13 +659,13 @@ private void createTutorialUI() {
     currentCharacterImg = new Image(tutCharacters[0]);
 
     float textBoxScale = 0.5f;   
-    float textBoxX = 130f;    
+    float textBoxX = 220f;    
     float textBoxY = 380f;      
 
     float textBoxWidth = tutTextBoxes[0].getWidth() * textBoxScale;
     float textBoxHeight = tutTextBoxes[0].getHeight() * textBoxScale;
     
-    float charX = 50f;
+    float charX = 200f;
     float charY = 0f;
     float charWidth = 287f;    
     float charHeight = 400f;    
@@ -679,7 +684,7 @@ private void createTutorialUI() {
     tBackBtn.setPosition(1230, 10);
     tutorialTable.addActor(tBackBtn);
 
-    bgImg.addListener(new ClickListener() {
+    clickArea.addListener(new ClickListener() {
         @Override
         public void clicked(InputEvent event, float x, float y) {
             tutorialStep++;
@@ -714,6 +719,28 @@ private void createTutorialUI() {
 
     stage.addActor(tutorialTable);
     tutorialTable.setVisible(false); 
+}
+
+private void startTutorialGameplay() {
+    gameState = GameState.TUTORIAL;
+    
+    // Clear the board and reset the game state
+    grid = new int[ROWS][COLS];
+    activeFallingPieces.clear();
+    activeSweeps.clear();
+    blastEffects.clear();
+    
+    // Reset Ghost variables
+    ghostMoveIndex = 0;
+    tutorialStage = 0;
+    ghostTimer = 0f;
+    currentPlayer = 1; // P1 always starts
+    
+    // Manage UI Visibility
+    introTable.setVisible(false);
+    if (exitTable != null) exitTable.setVisible(false);
+    gameHudGroup.setVisible(false);
+    tutorialTable.setVisible(true); // Show your tutorial text/characters!
 }
 
 private void createPlayAgainUI() {
@@ -961,11 +988,21 @@ public void render() {
     }
 
     updateStatusImage();
-    float scale = 2.5f;
+    
+float scale = 2.5f;
+    float offsetX = 0f;
+    float offsetY = 0f;
+
+    if (gameState == GameState.TUTORIAL) {
+        scale = 1.75f;  
+        offsetX = 657f; 
+        offsetY = 5f; 
+    }
+
     float frameWidth = frame.getWidth() * scale;
     float frameHeight = frame.getHeight() * scale;
-    float frameX = 60f; 
-    float frameY = 50f;
+    float frameX = 60f + offsetX; 
+    float frameY = 50f + offsetY;
     float framePadLeft = frameWidth * 0.2583f;
     float framePadRight = frameWidth * 0.2667f;
     float framePadTop = frameHeight * 0.2422f;
@@ -1047,10 +1084,15 @@ if (gameState == GameState.INTRO) {
     batch.draw(menuBg, 0, 0, VIRTUAL_WIDTH, VIRTUAL_HEIGHT);
 } else if (gameState == GameState.MODE_SELECT) {
     batch.draw(modeBg, 0, 0, VIRTUAL_WIDTH, VIRTUAL_HEIGHT);
-} else if (gameState == GameState.SETTINGS) { // <--- ADD THIS BLOCK
+} else if (gameState == GameState.SETTINGS) { 
     batch.draw(settingsBg, 0, 0, VIRTUAL_WIDTH, VIRTUAL_HEIGHT);
+} else if (gameState == GameState.TUTORIAL) {
+    // 👇 ADD THIS: Draw the tutorial background behind the board!
+    // (Make sure to declare 'Texture tutorialBg;' at the top of your class 
+    // and load it in create() using new Texture("tutorialbg.png"))
+    if (tutorialBg != null) batch.draw(tutorialBg, 0, 0, VIRTUAL_WIDTH, VIRTUAL_HEIGHT);
 } else {
-    // Regular Game Border
+    // Regular Game Border - ONLY draws during actual gameplay now!
     Texture activeBorder = isTwoPlayer ? border2p : border;
     batch.draw(activeBorder, 0, 0, VIRTUAL_WIDTH, VIRTUAL_HEIGHT);
 }
@@ -1082,10 +1124,44 @@ if (gameState != GameState.INTRO && gameState != GameState.MODE_SELECT && gameSt
         batch.draw(pieceTex, p.x, p.y, size, size);
 
         if (p.y <= p.targetY) {
-            popSound.play(masterVolume);
+            popSound.play(masterVolume * 0.5f);
             grid[p.row][p.col] = p.player;
             activeFallingPieces.remove(i);
             finalizeTurn(p.col, p.player);
+        }
+    }
+
+    if (gameState == GameState.TUTORIAL) {
+        ghostTimer += deltaTime;
+        
+        // If it's time to move AND the previous piece has finished falling
+        if (ghostTimer >= ghostMoveDelay && activeFallingPieces.isEmpty()) {
+            
+            // Pick the right array based on what stage we are on
+            int[] currentMoves;
+            if (tutorialStage == 0) currentMoves = ghostMovesH;
+            else if (tutorialStage == 1) currentMoves = ghostMovesV;
+            else currentMoves = ghostMovesD;
+            
+            if (ghostMoveIndex < currentMoves.length) {
+                // Drop the piece!
+                executeMove(currentMoves[ghostMoveIndex]);
+                ghostMoveIndex++;
+                ghostTimer = 0f;
+            } else if (ghostTimer >= ghostMoveDelay + 2.5f) {
+                // Wait 2.5 seconds to watch the explosion, then move to next stage!
+                tutorialStage++;
+                if (tutorialStage > 2) tutorialStage = 0; // Loop back to start
+                
+                // Secretly wipe the board clean for the next demonstration
+                grid = new int[ROWS][COLS];
+                activeFallingPieces.clear();
+                activeSweeps.clear();
+                blastEffects.clear();
+                ghostMoveIndex = 0;
+                ghostTimer = 0f;
+                currentPlayer = 1;
+            }
         }
     }
 
@@ -1437,6 +1513,7 @@ if (isTwoPlayer) {
         if (tutTextBoxes != null) {
             for (Texture t : tutTextBoxes) t.dispose();
         }
+        if (tutorialBg != null) tutorialBg.dispose();
     }
 
 void bubbleSortColumn(int col) {
@@ -1468,8 +1545,8 @@ void finalizeTurn(int col, int playerID) {
         if (playerID == 1) score += points;
         else aiScore += points;
         float pitch = 0.8f + (comboMultiplier * 0.2f);
-        if (clearType == 2) blast2.play(masterVolume, pitch, 0);
-        else blast1.play(masterVolume, pitch, 0);
+        if (clearType == 2) blast2.play(masterVolume * 0.5f, pitch, 0);
+        else blast1.play(masterVolume * 0.5f, pitch, 0);
 
         shakeTimer = 0.2f; 
         shakeIntensity = 3f + (comboMultiplier * 4f); // Bigger combos = bigger shake
@@ -1477,11 +1554,16 @@ void finalizeTurn(int col, int playerID) {
         for(int c = 0; c < COLS; c++) bubbleSortColumn(c);
     }
 
-        if (playerID == 1) {
-            p1Combo = Math.max(1, comboMultiplier);
-        } else {
-            p2Combo = Math.max(1, comboMultiplier);
-        }
+    if (playerID == 1) {
+        p1Combo = Math.max(1, comboMultiplier);
+    } else {
+        p2Combo = Math.max(1, comboMultiplier);
+    }
+
+    if (gameState == GameState.TUTORIAL) {
+        currentPlayer = (playerID == 1) ? 2 : 1;
+        return;
+    }
 
     if (score >= scoreGoal) {
         gameState = GameState.PLAYER_WIN;
@@ -1543,7 +1625,7 @@ void triggerExplosion() {
 }
 
 void executeMove(int col) {
-    if (gameState != GameState.PLAYING || currentPlayer == 0) return;
+    if ((gameState != GameState.PLAYING && gameState != GameState.TUTORIAL) || currentPlayer == 0) return;
 
     int targetRow = -1;
     for (int r = ROWS - 1; r >= 0; r--) {
