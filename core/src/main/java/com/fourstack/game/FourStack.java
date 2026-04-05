@@ -28,7 +28,7 @@ class FallingPiece {
     float x, y, targetY, speed;
     int player;
     int col, row;
-    // Keep track of the last few Y positions for the blur effect
+    
     float[] previousY = new float[5]; 
 
     FallingPiece(float x, float y, float targetY, int player, int col, int row) {
@@ -36,19 +36,19 @@ class FallingPiece {
         this.y = y;
         this.targetY = targetY;
         this.player = player;
-        this.speed = 1500f; // Crank this up for a real "speed" feel!
+        this.speed = 1500f; 
         this.col = col;
         this.row = row;
-        // Initialize trail
+        
         for(int i = 0; i < previousY.length; i++) previousY[i] = y;
     }
 
     void update(float deltaTime) {
-        // Shift old positions down the array
+        
         for (int i = previousY.length - 1; i > 0; i--) {
             previousY[i] = previousY[i - 1];
         }
-        previousY[0] = y; // Current becomes the new "previous"
+        previousY[0] = y; 
         y -= speed * deltaTime;
     }
 }
@@ -244,7 +244,7 @@ public class FourStack extends ApplicationAdapter {
     float aiTimer = 0f;
     boolean aiNeedsToMove = false;
     private Image pauseTriggerBtn;
-    private boolean comingFromPause = false; // Add this here
+    private boolean comingFromPause = false; 
     private Image easyBtnPause, medBtnPause, hardBtnPause;
     private GameState stateBeforePause = GameState.PLAYING;
 
@@ -305,7 +305,7 @@ public void create() {
 
     popSound = Gdx.audio.newSound(Gdx.files.internal("pop_sound.mp3"));
     winSound = Gdx.audio.newSound(Gdx.files.internal("win_sound.wav"));
-    loseSound = Gdx.audio.newSound(Gdx.files.internal("Lose_sound.wav"));
+    loseSound = Gdx.audio.newSound(Gdx.files.internal("lose_sound.wav"));
     blast1 = Gdx.audio.newSound(Gdx.files.internal("blast1.mp3"));
     blast2 = Gdx.audio.newSound(Gdx.files.internal("blast2.mp3"));
 
@@ -364,7 +364,7 @@ private void createIntroUI() {
 
     exitTable = new Table();
     exitTable.setFillParent(true);
-    exitTable.bottom().right().pad(20).padBottom(10);; // Pins to corner with 30px breathing room
+    exitTable.bottom().right().pad(20).padBottom(10);; 
     stage.addActor(exitTable);
 
     Image startBtn = new Image(startImg);
@@ -387,7 +387,7 @@ private void createIntroUI() {
         public void clicked(InputEvent event, float x, float y) {
             gameState = GameState.SETTINGS;
             introTable.setVisible(false);
-            exitTable.setVisible(false); // Hide the main exit button
+            exitTable.setVisible(false); 
             settingsTable.setVisible(true);
         }
     });
@@ -418,7 +418,7 @@ private void createModeUI() {
     modeTable.setFillParent(true);
     modeTable.center().padTop(194);
     stage.addActor(modeTable);
-    modeTable.setVisible(false); // Hidden until Start is clicked
+    modeTable.setVisible(false); 
 
     easyBtn = new Image(easyImg);
     medBtn = new Image(mediumImg);
@@ -519,7 +519,7 @@ private void createSettingsUI() {
         @Override
         public void changed(ChangeEvent event, com.badlogic.gdx.scenes.scene2d.Actor actor) {
             masterVolume = volumeSlider.getValue();
-            backgroundMusic.setVolume(masterVolume); // Updates music instantly
+            backgroundMusic.setVolume(masterVolume); 
         }
     });
 
@@ -575,7 +575,7 @@ private void createPauseUI() {
     resumeBtn.addListener(new ClickListener() {
         @Override
         public void clicked(InputEvent event, float x, float y) {
-            gameState = stateBeforePause; // <--- Return to PLAYING or GAME OVER
+            gameState = stateBeforePause; 
             pauseTable.setVisible(false);
             pauseExitTable.setVisible(false); 
             gameHudGroup.setVisible(true);
@@ -586,7 +586,7 @@ private void createPauseUI() {
         @Override
         public void clicked(InputEvent event, float x, float y) {
             pauseTable.setVisible(false);
-            pauseExitTable.setVisible(false); // Hide the corner exit button
+            pauseExitTable.setVisible(false); 
             startGame();
         }
     });
@@ -596,10 +596,10 @@ private void createPauseUI() {
         public void clicked(InputEvent event, float x, float y) {
             gameState = GameState.INTRO;
             pauseTable.setVisible(false);
-            pauseExitTable.setVisible(false); // Hide this one
+            pauseExitTable.setVisible(false); 
             gameHudGroup.setVisible(false);
             introTable.setVisible(true);
-            exitTable.setVisible(true);      // Show the Intro's exit button
+            exitTable.setVisible(true);      
         }
     });
 
@@ -615,7 +615,7 @@ private void createPauseUI() {
         }
     });
     
-    // --- DIFFICULTY LOGIC IN createPauseUI ---
+    
     easyBtnPause.addListener(new ClickListener() {
         @Override
         public void clicked(InputEvent event, float x, float y) {
@@ -754,23 +754,23 @@ private void createTutorialUI() {
 private void startTutorialGameplay() {
     gameState = GameState.TUTORIAL;
     
-    // Clear the board and reset the game state
+    
     grid = new int[ROWS][COLS];
     activeFallingPieces.clear();
     activeSweeps.clear();
     blastEffects.clear();
     
-    // Reset Ghost variables
+    
     ghostMoveIndex = 0;
     tutorialStage = 0;
     ghostTimer = 0f;
-    currentPlayer = 1; // P1 always starts
+    currentPlayer = 1; 
     
-    // Manage UI Visibility
+    
     introTable.setVisible(false);
     if (exitTable != null) exitTable.setVisible(false);
     gameHudGroup.setVisible(false);
-    tutorialTable.setVisible(true); // Show your tutorial text/characters!
+    tutorialTable.setVisible(true); 
 }
 
 private void createPlayAgainUI() {
@@ -786,7 +786,7 @@ private void createPlayAgainUI() {
         @Override
         public void clicked(InputEvent event, float x, float y) {
             playAgainTable.setVisible(false);
-            startGame(); // Restarts the game immediately
+            startGame(); 
         }
     });
     
@@ -805,7 +805,7 @@ private void createPlayAgainUI() {
     playAgainTable.add(noBtn).width(180).height(76);
     
     stage.addActor(playAgainTable);
-    playAgainTable.setVisible(false); // Hide it by default
+    playAgainTable.setVisible(false); 
 }
 
 private void createGameUI() {
@@ -932,7 +932,7 @@ private void updateStatusImage() {
     Texture targetTex = null;
     Texture targetClTex = null; 
 
-    // 1. GAME IS ACTIVE
+    
     if (gameState == GameState.PLAYING) {
         if (currentPlayer == 1) {
             targetTex = p1TurnTex;
@@ -942,12 +942,12 @@ private void updateStatusImage() {
             targetClTex = isTwoPlayer ? p2TurnClTex : aiTurnClTex;
         }
     } 
-    // 2. PLAYER 1 WINS
+    
     else if (gameState == GameState.PLAYER_WIN) {
         targetTex = isTwoPlayer ? p1WinTex : winTex; 
         targetClTex = winClTex;
     } 
-    // 3. AI OR PLAYER 2 WINS
+    
     else if (gameState == GameState.AI_WIN) {
         targetTex = isTwoPlayer ? p2WinTex : lossTex;
         targetClTex = isTwoPlayer ? winClTex : lossClTex; 
@@ -983,9 +983,9 @@ private void startGame() {
     gameState = GameState.PLAYING;
 
     float startTime;
-    if (scoreGoal == 1000)      startTime = 120f; // Easy: 2:00
-    else if (scoreGoal == 3000) startTime = 100f; // Med: 1:40
-    else                        startTime = 80f;  // Hard: 1:20
+    if (scoreGoal == 1000)      startTime = 120f; 
+    else if (scoreGoal == 3000) startTime = 100f; 
+    else                        startTime = 80f;  
 
     p1TimeRemaining = startTime;
     p2TimeRemaining = startTime;
@@ -1091,7 +1091,7 @@ float scale = 2.5f;
                     com.badlogic.gdx.math.Vector2 touch = new com.badlogic.gdx.math.Vector2(Gdx.input.getX(), Gdx.input.getY());
                     viewport.unproject(touch);
                     
-                    // 1. Check if they clicked their power-up button
+                    
                     float pW = 700 * powerUpScale;
                     if (currentPlayer == 1 && p1PowerUp != PowerUp.NONE && touch.x >= p1PowerUpX && touch.x <= p1PowerUpX + pW && touch.y >= p1PowerUpY && touch.y <= p1PowerUpY + pW) {
                         activatePowerUp(p1PowerUp, 1);
@@ -1102,11 +1102,11 @@ float scale = 2.5f;
                         p2PowerUp = PowerUp.NONE;
                     }
                     
-                    // 2. Targetting Mode (Bomb or Bullet)
+                    
                     else if (activeTargeting != PowerUp.NONE) {
                         if (touch.x >= innerX && touch.x <= innerX + innerW) {
                             int col = (int) ((touch.x - innerX) / cellWidth);
-                            int row = (int) ((innerY + innerH - touch.y) / cellHeight); // Reverse Y for grid
+                            int row = (int) ((innerY + innerH - touch.y) / cellHeight); 
                             
                             if (row >= 0 && row < ROWS && col >= 0 && col < COLS) {
                                 executeTargeting(col, row);
@@ -1114,7 +1114,7 @@ float scale = 2.5f;
                         }
                     }
                     
-                    // 3. Normal Move
+                    
                     else if (touch.x >= innerX && touch.x <= innerX + innerW && activeTargeting == PowerUp.NONE) {
                         int col = (int) ((touch.x - innerX) / cellWidth);
                         executeMove(col); 
@@ -1161,12 +1161,12 @@ if (gameState == GameState.INTRO) {
 } else if (gameState == GameState.SETTINGS) { 
     batch.draw(settingsBg, 0, 0, VIRTUAL_WIDTH, VIRTUAL_HEIGHT);
 } else if (gameState == GameState.TUTORIAL) {
-    // 👇 ADD THIS: Draw the tutorial background behind the board!
-    // (Make sure to declare 'Texture tutorialBg;' at the top of your class 
-    // and load it in create() using new Texture("tutorialbg.png"))
+    
+    
+    
     if (tutorialBg != null) batch.draw(tutorialBg, 0, 0, VIRTUAL_WIDTH, VIRTUAL_HEIGHT);
 } else {
-    // Regular Game Border - ONLY draws during actual gameplay now!
+    
     Texture activeBorder = isTwoPlayer ? border2p : border;
     batch.draw(activeBorder, 0, 0, VIRTUAL_WIDTH, VIRTUAL_HEIGHT);
 }
@@ -1208,26 +1208,26 @@ if (gameState != GameState.INTRO && gameState != GameState.MODE_SELECT && gameSt
     if (gameState == GameState.TUTORIAL) {
         ghostTimer += deltaTime;
         
-        // If it's time to move AND the previous piece has finished falling
+        
         if (ghostTimer >= ghostMoveDelay && activeFallingPieces.isEmpty()) {
             
-            // Pick the right array based on what stage we are on
+            
             int[] currentMoves;
             if (tutorialStage == 0) currentMoves = ghostMovesH;
             else if (tutorialStage == 1) currentMoves = ghostMovesV;
             else currentMoves = ghostMovesD;
             
             if (ghostMoveIndex < currentMoves.length) {
-                // Drop the piece!
+                
                 executeMove(currentMoves[ghostMoveIndex]);
                 ghostMoveIndex++;
                 ghostTimer = 0f;
             } else if (ghostTimer >= ghostMoveDelay + 2.5f) {
-                // Wait 2.5 seconds to watch the explosion, then move to next stage!
-                tutorialStage++;
-                if (tutorialStage > 2) tutorialStage = 0; // Loop back to start
                 
-                // Secretly wipe the board clean for the next demonstration
+                tutorialStage++;
+                if (tutorialStage > 2) tutorialStage = 0; 
+                
+                
                 grid = new int[ROWS][COLS];
                 activeFallingPieces.clear();
                 activeSweeps.clear();
@@ -1259,7 +1259,7 @@ if (gameState != GameState.INTRO && gameState != GameState.MODE_SELECT && gameSt
 batch.end();
 
 Gdx.gl.glEnable(GL20.GL_BLEND);
-Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE); // Makes it look like a neon glow
+Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE); 
 
 shapeRenderer.setProjectionMatrix(viewport.getCamera().combined);
 shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
@@ -1267,7 +1267,7 @@ shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
 for (int i = activeSweeps.size() - 1; i >= 0; i--) {
     SweepEffect s = activeSweeps.get(i);
     s.update(deltaTime);
-    shapeRenderer.setColor(1f, 1f, 1f, s.alpha); // Bright white-blue flash
+    shapeRenderer.setColor(1f, 1f, 1f, s.alpha); 
     shapeRenderer.rect(s.x, s.y, s.width, s.height);
     if (s.alpha <= 0) activeSweeps.remove(i);
 }
@@ -1275,7 +1275,7 @@ for (int i = activeSweeps.size() - 1; i >= 0; i--) {
 for (int i = blastEffects.size() - 1; i >= 0; i--) {
     BlastEffect b = blastEffects.get(i);
     b.update(deltaTime);
-    shapeRenderer.setColor(1f, 0.8f, 0f, b.alpha); // Golden glow for diagonals
+    shapeRenderer.setColor(1f, 0.8f, 0f, b.alpha); 
     shapeRenderer.circle(b.x, b.y, b.size / 2);
     if (b.isFinished()) blastEffects.remove(i);
 }
@@ -1298,13 +1298,13 @@ if (gameState == GameState.PLAYING && (currentPlayer == 1 || (isTwoPlayer && cur
         float previewX = innerX + hoverCol * cellWidth + (cellWidth - size) / 1f + 2.2f;
         float previewY = innerY + ROWS * cellHeight + 10;
 
-        // Choose texture based on current player
+        
         Texture previewTex = (currentPlayer == 1) ? yellowPiece : redPiece;
 
         if (grid[0][hoverCol] == 0) {
-            batch.setColor(1, 1, 1, 0.5f); // Transparent preview
+            batch.setColor(1, 1, 1, 0.5f); 
         } else {
-            batch.setColor(1, 0, 0, 0.7f); // Red tint if blocked
+            batch.setColor(1, 0, 0, 0.7f); 
         }
 
         batch.draw(previewTex, previewX, previewY, size, size);
@@ -1316,9 +1316,9 @@ if (gameState == GameState.PLAYING || gameState == GameState.PAUSED) {
     float pW = 700 * powerUpScale;
     float pH = 700 * powerUpScale;
 
-    // --- Player 1 Power Up Box ---
+    
     if (isShuffling1) {
-        // Only tick down the timer and spin the roulette if we are actively playing
+        
         if (gameState == GameState.PLAYING) {
             shuffleTimer1 -= deltaTime;
             if ((int)(shuffleTimer1 * 10) % 2 == 0) shuffleIndex1 = (shuffleIndex1 + 1) % 5;
@@ -1327,17 +1327,17 @@ if (gameState == GameState.PLAYING || gameState == GameState.PAUSED) {
         if (shuffleTimer1 > 0) {
             batch.draw(powerUpList[shuffleIndex1], p1PowerUpX, p1PowerUpY, pW, pH);
         } else {
-            // Lock it in!
+            
             isShuffling1 = false;
-            p1PowerUp = PowerUp.values()[random.nextInt(5) + 1]; // Pick 1 to 5
+            p1PowerUp = PowerUp.values()[random.nextInt(5) + 1]; 
         }
     } else if (p1PowerUp != PowerUp.NONE) {
         batch.draw(getTextureForPowerUp(p1PowerUp), p1PowerUpX, p1PowerUpY, pW, pH);
     }
 
-    // --- Player 2 Power Up Box ---
+    
     if (isShuffling2) {
-        // Only tick down the timer and spin the roulette if we are actively playing
+        
         if (gameState == GameState.PLAYING) {
             shuffleTimer2 -= deltaTime;
             if ((int)(shuffleTimer2 * 10) % 2 == 0) shuffleIndex2 = (shuffleIndex2 + 1) % 5;
@@ -1388,7 +1388,7 @@ void makeAIMove() {
         p2PowerUp = PowerUp.NONE;
         
         if (usedPowerUp == PowerUp.BOMB) {
-            // Find a valid piece on the board to destroy
+            
             java.util.List<int[]> validTargets = new java.util.ArrayList<>();
             for (int r = 0; r < ROWS; r++) {
                 for (int c = 0; c < COLS; c++) {
@@ -1462,7 +1462,7 @@ void makeAIMove() {
     } 
 
     if (currentDifficulty == Difficulty.MEDIUM && chosenCol == -1) {
-        if (random.nextFloat() > 0.5f) chosenCol = findWinningMove(1); // 50% chance to block
+        if (random.nextFloat() > 0.5f) chosenCol = findWinningMove(1); 
     }
 
     if (chosenCol == -1) {
@@ -1471,7 +1471,7 @@ void makeAIMove() {
             if (grid[0][c] == 0) validCols.add(c);
         }
         if (!validCols.isEmpty()) {
-            chosenCol = validCols.get(random.nextInt(validCols.size())); // Random move
+            chosenCol = validCols.get(random.nextInt(validCols.size())); 
         }
     }
 
@@ -1482,7 +1482,7 @@ void makeAIMove() {
 
 int findWinningMove(int player) {
     for (int c = 0; c < COLS; c++) {
-        // Find where the piece would land
+        
         int targetRow = -1;
         for (int r = ROWS - 1; r >= 0; r--) {
             if (grid[r][c] == 0) {
@@ -1504,10 +1504,10 @@ int findWinningMove(int player) {
 int checkAndRemoveLines() {
     java.util.Set<Integer> rowsToClear = new java.util.HashSet<>();
     java.util.Set<Integer> colsToClear = new java.util.HashSet<>();
-    java.util.Set<Integer> diag1ToClear = new java.util.HashSet<>(); // Down-Right (\)
-    java.util.Set<Integer> diag2ToClear = new java.util.HashSet<>(); // Up-Right (/)
+    java.util.Set<Integer> diag1ToClear = new java.util.HashSet<>(); 
+    java.util.Set<Integer> diag2ToClear = new java.util.HashSet<>(); 
 
-    // 1. Scan the whole board for ALL simultaneous matches
+    
     for (int r = 0; r < ROWS; r++) {
         for (int c = 0; c <= COLS - 4; c++) {
             if (grid[r][c] != 0 && grid[r][c] == grid[r][c+1] && grid[r][c] == grid[r][c+2] && grid[r][c] == grid[r][c+3]) rowsToClear.add(r);
@@ -1529,10 +1529,10 @@ int checkAndRemoveLines() {
         }
     }
 
-    // 2. Count total combos triggered simultaneously
+    
     int linesFound = rowsToClear.size() + colsToClear.size() + diag1ToClear.size() + diag2ToClear.size();
 
-    // 3. Destroy them all at once
+    
     if (linesFound > 0) {
         boolean[][] toDestroy = new boolean[ROWS][COLS];
 
@@ -1605,7 +1605,7 @@ void updateAndDrawUI() {
 if (isTwoPlayer) {
     playerLabel.setText("" + score);
     aiLabel.setText("" + aiScore);
-    aiLabel.setColor(Color.YELLOW); // Ensure P2 stays Red
+    aiLabel.setColor(Color.YELLOW); 
 } else {
     playerLabel.setText("" + score);
     aiLabel.setText("" + aiScore);
@@ -1658,7 +1658,7 @@ if (isTwoPlayer) {
         playAgainTable.setVisible(true);
     } else {
         statusLabel.setText(""); 
-        playAgainTable.setVisible(false); // Hide in menus
+        playAgainTable.setVisible(false); 
     }
 }
 
@@ -1740,9 +1740,9 @@ if (isTwoPlayer) {
 void bubbleSortColumn(int col) {
     for (int pass = 0; pass < ROWS; pass++) {
         for (int r = 0; r < ROWS - 1; r++) {
-            // If current spot has a piece (1 or 2) AND the spot below (r+1) is empty (0)
+            
             if (grid[r][col] != 0 && grid[r + 1][col] == 0) {
-                // Swap them so the piece "falls" into the empty space
+                
                 int temp = grid[r][col];
                 grid[r][col] = grid[r + 1][col];
                 grid[r + 1][col] = temp;
@@ -1758,10 +1758,10 @@ void finalizeTurn(int col, int playerID) {
     statusLabel.setVisible(false);
     int linesCleared;
     
-    // Loop continues if pieces fall and create NEW matches
+    
     while ((linesCleared = checkAndRemoveLines()) > 0) {
         triggerExplosion();
-        comboMultiplier += linesCleared; // Add ALL simultaneous clears!
+        comboMultiplier += linesCleared; 
 
         if (playerID == 1) {
             int previousClears = p1LinesCleared;
@@ -1780,7 +1780,7 @@ void finalizeTurn(int col, int playerID) {
         }
 
         float bonus = (scoreGoal < 3000) ? 8f : 5f; 
-        bonus *= linesCleared; // Extra time for multi-kills!
+        bonus *= linesCleared; 
         if (playerID == 1) p1TimeRemaining += bonus;
         else p2TimeRemaining += bonus;
 
@@ -1836,7 +1836,7 @@ void triggerExplosion() {
         new com.badlogic.gdx.scenes.scene2d.utils.TextureRegionDrawable(expTextures[rand])
     );
 
-    float expX = 900f; // customize
+    float expX = 900f; 
     float expY = 380f;
 
     expImage.setPosition(expX, expY);
@@ -1887,10 +1887,10 @@ void executeMove(int col) {
 
 boolean checkWin(int player) {
     int[][] directions = {
-        {0, 1},   // horizontal
-        {1, 0},   // vertical
-        {1, 1},   // diagonal \
-        {-1, 1}   // diagonal /
+        {0, 1},   
+        {1, 0},   
+        {1, 1},   
+        {-1, 1}   
     };
 
     for (int r = 0; r < ROWS; r++) {
@@ -1898,7 +1898,7 @@ boolean checkWin(int player) {
 
             if (grid[r][c] != player) continue;
 
-            // Check all directions
+            
             for (int[] dir : directions) {
 
                 int count = 1;
@@ -1936,7 +1936,7 @@ void activatePowerUp(PowerUp type, int playerID) {
         if (playerID == 1) score += coinValue; else aiScore += coinValue;
         popSound.play(masterVolume); 
         
-        // 👇 ADDED: Coin Text
+        
         statusLabel.setText((playerID == 1 || isTwoPlayer) ? "+" + coinValue + " Points!" : "AI gained points!");
         statusLabel.setVisible(true);
     }
@@ -1944,7 +1944,7 @@ void activatePowerUp(PowerUp type, int playerID) {
         if (playerID == 1) p1TimeRemaining += 8f; else p2TimeRemaining += 8f;
         popSound.play(masterVolume); 
         
-        // 👇 ADDED: Eight Text
+        
         statusLabel.setText("+8 Seconds!");
         statusLabel.setVisible(true);
     } 
@@ -1952,12 +1952,12 @@ void activatePowerUp(PowerUp type, int playerID) {
         if (playerID == 1) p1TimerStopped = true; else p2TimerStopped = true;
         popSound.play(masterVolume); 
         
-        // 👇 ADDED: Star Text
+        
         statusLabel.setText("Time Frozen!");
         statusLabel.setVisible(true);
     }
     else if (type == PowerUp.BOMB || type == PowerUp.BULLET) {
-        // Prevent Soft Lock on Empty Board
+        
         boolean isEmpty = true;
         for(int r = 0; r < ROWS; r++) {
             for(int c = 0; c < COLS; c++) {
@@ -1965,16 +1965,16 @@ void activatePowerUp(PowerUp type, int playerID) {
             }
         }
     if (isEmpty) {
-            // 👇 Replace the old empty check with this!
-            if (playerID == 1) p1PowerUp = type; else p2PowerUp = type; // Give it back
-            return; // Don't finalize the turn!
+            
+            if (playerID == 1) p1PowerUp = type; else p2PowerUp = type; 
+            return; 
         }
 
         activeTargeting = type;
         if (type == PowerUp.BOMB) {
             statusLabel.setText("Select piece to destroy!");
         } else {
-            bulletIsRow = random.nextBoolean(); // Randomly pick Row or Column!
+            bulletIsRow = random.nextBoolean(); 
             statusLabel.setText(bulletIsRow ? "Select row to clear!" : "Select column to clear!");
         }
         statusLabel.setVisible(true);
@@ -1995,7 +1995,7 @@ void executeTargeting(int col, int row) {
     } 
     else if (activeTargeting == PowerUp.BULLET) {
         if (bulletIsRow) {
-            // Clear the selected ROW
+            
             activeSweeps.add(new SweepEffect(innerX, innerY + (ROWS - 1 - row) * cellHeight, innerW, cellHeight));
             blast1.play(masterVolume);
             for(int c = 0; c < COLS; c++) {
@@ -2003,7 +2003,7 @@ void executeTargeting(int col, int row) {
                 grid[row][c] = 0;
             }
         } else {
-            // Clear the selected COLUMN
+            
             activeSweeps.add(new SweepEffect(innerX + col * cellWidth, innerY, cellWidth, innerH));
             blast1.play(masterVolume);
             for(int r = 0; r < ROWS; r++) {
