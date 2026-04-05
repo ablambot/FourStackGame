@@ -495,9 +495,9 @@ private void createSettingsUI() {
                     gameState = GameState.PAUSED;
                     settingsTable.setVisible(false);
                     pauseTable.setVisible(true);
+                    gameHudGroup.setVisible(true);
                     comingFromPause = false;
                 } else {
-                    // GO BACK TO MAIN MENU
                     gameState = GameState.INTRO;
                     settingsTable.setVisible(false);
                     introTable.setVisible(true);
@@ -574,6 +574,8 @@ private void createPauseUI() {
             gameState = GameState.SETTINGS;
             pauseTable.setVisible(false);
             settingsTable.setVisible(true);
+            settingsTable.toFront();
+            gameHudGroup.setVisible(false);
         }
     });
     
