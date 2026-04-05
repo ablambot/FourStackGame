@@ -680,8 +680,8 @@ private void createTutorialUI() {
         tutCharacters[i] = new Texture(Gdx.files.internal("tut" + (i + 1) + ".png"));
     }
     
-    tutTextBoxes = new Texture[11];
-    for (int i = 0; i < 11; i++) {
+    tutTextBoxes = new Texture[12];
+    for (int i = 0; i < 12; i++) {
         tutTextBoxes[i] = new Texture(Gdx.files.internal((i + 1) + ".png"));
     }
 
@@ -689,13 +689,13 @@ private void createTutorialUI() {
     currentCharacterImg = new Image(tutCharacters[0]);
 
     float textBoxScale = 0.5f;   
-    float textBoxX = 220f;    
+    float textBoxX = 25f;    
     float textBoxY = 380f;      
 
     float textBoxWidth = tutTextBoxes[0].getWidth() * textBoxScale;
     float textBoxHeight = tutTextBoxes[0].getHeight() * textBoxScale;
     
-    float charX = 200f;
+    float charX = 80f;
     float charY = 0f;
     float charWidth = 287f;    
     float charHeight = 400f;    
@@ -719,7 +719,7 @@ private void createTutorialUI() {
         public void clicked(InputEvent event, float x, float y) {
             tutorialStep++;
             
-            if (tutorialStep >= 11) {
+            if (tutorialStep >= 12) {
                 tutorialStep = 0; 
             }
             
@@ -1042,7 +1042,7 @@ float scale = 2.5f;
 
     if (gameState == GameState.TUTORIAL) {
         scale = 1.75f;  
-        offsetX = 657f; 
+        offsetX = 450f; 
         offsetY = 5f; 
     }
 
