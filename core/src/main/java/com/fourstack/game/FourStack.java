@@ -441,6 +441,7 @@ private void createModeUI() {
         @Override
         public void clicked(InputEvent event, float x, float y) {
             scoreGoal = 1000;
+            currentDifficulty = Difficulty.EASY;
             updateDifficultyGlow(easyBtn);
         }
     });
@@ -449,6 +450,7 @@ private void createModeUI() {
         @Override
         public void clicked(InputEvent event, float x, float y) {
             scoreGoal = 3000;
+            currentDifficulty = Difficulty.MEDIUM;
             updateDifficultyGlow(medBtn);
         }
     });
@@ -457,6 +459,7 @@ private void createModeUI() {
         @Override
         public void clicked(InputEvent event, float x, float y) {
             scoreGoal = 5000;
+            currentDifficulty = Difficulty.HARD;
             updateDifficultyGlow(hardBtn);
         }
     });
@@ -599,7 +602,12 @@ private void createPauseUI() {
             pauseExitTable.setVisible(false); 
             gameHudGroup.setVisible(false);
             introTable.setVisible(true);
-            exitTable.setVisible(true);      
+            exitTable.setVisible(true);  
+            
+            scoreGoal = 3000;
+            currentDifficulty = Difficulty.MEDIUM;
+            updateDifficultyGlow(medBtn); 
+            updateDifficultyGlowPause(medBtnPause);
         }
     });
 
@@ -799,6 +807,11 @@ private void createPlayAgainUI() {
             gameHudGroup.setVisible(false);
             introTable.setVisible(true);
             if (exitTable != null) exitTable.setVisible(true);
+
+            scoreGoal = 3000;
+            currentDifficulty = Difficulty.MEDIUM;
+            updateDifficultyGlow(medBtn); 
+            updateDifficultyGlowPause(medBtnPause);
         }
     });
     playAgainTable.add(yesBtn).width(180).height(76).padRight(30);
