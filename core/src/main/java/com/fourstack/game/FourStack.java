@@ -1433,15 +1433,32 @@ void makeAIMove() {
     
     int chosenCol = -1;
 
-    if (currentDifficulty == Difficulty.HARD) {
-        chosenCol = findWinningMove(2);
-        if (chosenCol == -1) chosenCol = findWinningMove(1);
+    chosenCol = findWinningMove(2);
 
-        if (chosenCol == -1) {
-            List<Integer> safeCols = new ArrayList<>();
+    if (chosenCol == -1) {
+        int blockCol = findWinningMove(1);
+        if (blockCol != -1) {
+            boolean causesDeath = (grid[1][blockCol] != 0); 
             
-            for (int c = 0; c < COLS; c++) {
-                if (grid[0][c] == 0) {
+            if (!causesDeath) {
+                if (currentDifficulty == Difficulty.HARD || 
+                   (currentDifficulty == Difficulty.MEDIUM && random.nextFloat() > 0.4f)) {
+                    chosenCol = blockCol;
+                }
+            }
+        }
+    }
+
+    if (chosenCol == -1) {
+        List<Integer> safeCols = new ArrayList<>();
+        List<Integer> safeFromDeathCols = new ArrayList<>();
+        
+        for (int c = 0; c < COLS; c++) {
+            if (grid[0][c] == 0) {
+
+                if (grid[1][c] == 0) {
+                    safeFromDeathCols.add(c);
+                    
                     int targetRow = -1;
                     for (int r = ROWS - 1; r >= 0; r--) {
                         if (grid[r][c] == 0) { targetRow = r; break; }
@@ -1449,46 +1466,48 @@ void makeAIMove() {
 
                     grid[targetRow][c] = 2; 
                     boolean givesWinToPlayer = false;
-
+                    
                     if (targetRow > 0) {
                         grid[targetRow - 1][c] = 1;
-                        givesWinToPlayer = checkWin(1);
-                        grid[targetRow - 1][c] = 0;
+                        givesWinToPlayer = checkWin(1); 
+                        grid[targetRow - 1][c] = 0; 
                     }
                     
-                    grid[targetRow][c] = 0;
+                    grid[targetRow][c] = 0; 
                     
                     if (!givesWinToPlayer) safeCols.add(c);
                 }
             }
-            
-            if (!safeCols.isEmpty()) {
+        }
+        
+        if (!safeCols.isEmpty()) {
+            if (currentDifficulty == Difficulty.HARD) {
                 int bestCol = safeCols.get(0);
                 int closestDist = 999;
                 
                 for (int c : safeCols) {
-                    int dist = Math.abs(c - 3);
+                    int dist = Math.abs(c - 3); // 3 is center
                     if (dist < closestDist || (dist == closestDist && random.nextBoolean())) {
                         closestDist = dist;
                         bestCol = c;
                     }
                 }
                 chosenCol = bestCol;
+            } else if (currentDifficulty == Difficulty.MEDIUM) {
+                chosenCol = safeCols.get(random.nextInt(safeCols.size()));
             }
         }
-    } 
 
-    if (currentDifficulty == Difficulty.MEDIUM && chosenCol == -1) {
-        if (random.nextFloat() > 0.5f) chosenCol = findWinningMove(1); 
-    }
-
-    if (chosenCol == -1) {
-        List<Integer> validCols = new ArrayList<>();
-        for (int c = 0; c < COLS; c++) {
-            if (grid[0][c] == 0) validCols.add(c);
-        }
-        if (!validCols.isEmpty()) {
-            chosenCol = validCols.get(random.nextInt(validCols.size())); 
+        if (chosenCol == -1) {
+            if (!safeFromDeathCols.isEmpty()) {
+                chosenCol = safeFromDeathCols.get(random.nextInt(safeFromDeathCols.size()));
+            } else {
+                List<Integer> validCols = new ArrayList<>();
+                for (int c = 0; c < COLS; c++) {
+                    if (grid[0][c] == 0) validCols.add(c);
+                }
+                if (!validCols.isEmpty()) chosenCol = validCols.get(random.nextInt(validCols.size()));
+            }
         }
     }
 
@@ -1954,24 +1973,18 @@ void activatePowerUp(PowerUp type, int playerID) {
         
         if (playerID == 1) score += coinValue; else aiScore += coinValue;
         popSound.play(masterVolume); 
-        
-        
         statusLabel.setText((playerID == 1 || isTwoPlayer) ? "+" + coinValue + " Points!" : "AI gained points!");
         statusLabel.setVisible(true);
     }
     else if (type == PowerUp.EIGHT) {
         if (playerID == 1) p1TimeRemaining += 8f; else p2TimeRemaining += 8f;
         popSound.play(masterVolume); 
-        
-        
         statusLabel.setText("+8 Seconds!");
         statusLabel.setVisible(true);
     } 
     else if (type == PowerUp.STAR) {
         if (playerID == 1) p1TimerStopped = true; else p2TimerStopped = true;
         popSound.play(masterVolume); 
-        
-        
         statusLabel.setText("Time Frozen!");
         statusLabel.setVisible(true);
     }
