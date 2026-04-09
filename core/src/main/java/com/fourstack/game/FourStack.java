@@ -238,6 +238,7 @@ public class FourStack extends ApplicationAdapter {
     float p2TimeRemaining;
     int p1Combo = 1;
     int p2Combo = 1;
+    float endGameTimer = 1.5f;
 
     Random random = new Random();
     float aiMoveDelay = 0.65f;
@@ -1021,9 +1022,8 @@ private void startGame() {
     isShuffling2 = false;
     shuffleTimer1 = 0f;
     shuffleTimer2 = 0f;
+    endGameTimer = 1.5f;
     statusLabel.setVisible(false);
-
-    
     introTable.setVisible(false);
     modeTable.setVisible(false); 
     gameTable.setVisible(true);
@@ -1367,6 +1367,10 @@ if (gameState == GameState.PLAYING || gameState == GameState.PAUSED) {
     }
 }
 
+if (gameState == GameState.PLAYER_WIN || gameState == GameState.AI_WIN || gameState == GameState.TIME_UP) {
+        endGameTimer -= deltaTime;
+}
+
 updateAndDrawUI();
 batch.end();
 
@@ -1668,7 +1672,9 @@ if (isTwoPlayer) {
         }
     } else if (gameState == GameState.PLAYER_WIN || gameState == GameState.AI_WIN || gameState == GameState.TIME_UP) {
         displayEndGameMessage();
-        playAgainTable.setVisible(true);
+        if (endGameTimer <= 0) { // 👇 ADDED THIS CHECK
+            playAgainTable.setVisible(true);
+        }
     } else {
         statusLabel.setText(""); 
         playAgainTable.setVisible(false); 
